@@ -1,0 +1,74 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ориентир: корпоративный стиль Сбер CIB / Сбер — светлый фон, зелёный акцент */
+:root {
+  --background: #e8eeea;
+  --foreground: #1a221e;
+  --card: #ffffff;
+  --border: #c5d4cb;
+  --accent: #21a038;
+  --accent-hover: #198030;
+  --accent-soft: rgba(33, 160, 56, 0.14);
+  --accent-ring: rgba(33, 160, 56, 0.28);
+  --link: #0d6e24;
+  --link-digital: #0077c8;
+  --muted: #5c6861;
+  --input-bg: #f6faf7;
+  --sidebar: #ffffff;
+  --chart-grid: #cdd9d1;
+  --chart-tick: #6b7a73;
+  --shadow-card: 0 4px 28px -8px rgba(26, 34, 30, 0.12);
+}
+
+body {
+  color: var(--foreground);
+  background: linear-gradient(
+      165deg,
+      rgba(33, 160, 56, 0.06) 0%,
+      transparent 42%
+    ),
+    linear-gradient(180deg, #f0f5f1 0%, #e8eeea 55%, #e4ebe6 100%);
+  font-family: "Manrope", system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+@layer components {
+  .field-input {
+    @apply w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--foreground)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-ring)];
+  }
+  .btn-primary {
+    @apply rounded-lg bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--accent-hover)] disabled:opacity-50;
+  }
+  .card-panel {
+    @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm;
+  }
+  .link-accent {
+    @apply font-medium text-[var(--link)] underline-offset-2 hover:text-[var(--accent-hover)] hover:underline;
+  }
+}
+
+/* Подсказки в полях */
+input::placeholder,
+textarea::placeholder {
+  color: rgb(92 104 97 / 0.5);
+  font-style: italic;
+  font-weight: 400;
+}
+
+input::-webkit-input-placeholder {
+  color: rgb(92 104 97 / 0.5);
+  font-style: italic;
+  font-weight: 400;
+}
+
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  color: rgb(92 104 97 / 0.5);
+  font-style: italic;
+  font-weight: 400;
+  opacity: 1;
+}
