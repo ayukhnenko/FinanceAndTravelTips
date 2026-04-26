@@ -6,12 +6,16 @@ import TelegramChannelPromo from "@/components/TelegramChannelPromo";
 import VisitBadge from "@/components/VisitBadge";
 
 const links = [
-  { href: "/", label: "Досрочное погашение" },
+  { href: "/", label: "Выгодно ли гасить кредит досрочно" },
   {
     href: "/bonds",
-    label: "Плати за кредит с инвестиций",
+    label: "Сколько инвестиций нужно, чтобы покрыть кредит",
   },
-  { href: "/compound", label: "Сложные проценты" },
+  { href: "/compound", label: "Калькулятор сложных процентов" },
+  {
+    href: "/mortgage-sale",
+    label: "Выгодно ли продавать квартиру в ипотеке",
+  },
   { href: "/loan", label: "Кредитный калькулятор" },
 ] as const;
 
@@ -28,12 +32,9 @@ export default function AppNav() {
         >
           Финансовая логика жизни
         </Link>
-        <div className="mt-4">
-          <TelegramChannelPromo variant="sidebar" />
-        </div>
       </div>
 
-      <nav className="flex flex-col gap-0.5 px-3 py-4 md:flex-1">
+      <nav className="flex flex-col gap-0.5 px-3 py-4">
         {links.map(({ href, label }) => {
           const active =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -53,7 +54,13 @@ export default function AppNav() {
         })}
       </nav>
 
-      <div className="mt-auto flex flex-col gap-3 border-t border-[var(--border)] p-3">
+      <div className="border-t border-[var(--border)] px-3 py-3">
+        <TelegramChannelPromo variant="sidebar" />
+      </div>
+
+      <div className="min-h-0 flex-1" aria-hidden />
+
+      <div className="flex flex-col gap-3 border-t border-[var(--border)] p-3">
         <VisitBadge className="w-full justify-center" />
         <button
           type="button"

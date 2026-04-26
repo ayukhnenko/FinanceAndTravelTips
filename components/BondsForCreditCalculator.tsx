@@ -112,17 +112,9 @@ export default function BondsForCreditCalculator({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-          Плати за кредит с инвестиций
-        </h1>
-        <p className="mt-2 text-[var(--muted)]">
-          Оценка суммы вложения в долговые инструменты (ориентир — облигации с
-          полугодовой выплатой купона), если считать доходность портфеля равной
-          ключевой ставке Банка России. Расчёт — ориентировочный: налоги,
-          комиссии и календарь купонов не учитываются.
-        </p>
-      </div>
+      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+        Сколько инвестиций нужно, чтобы покрыть кредит
+      </h1>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">

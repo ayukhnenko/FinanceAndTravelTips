@@ -3,8 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Финансовая логика жизни",
-  description:
-    "Финансовая логика жизни — калькуляторы кредита, досрочного погашения и сложных процентов",
+  description: "Финансовые сервисы для жизни",
 };
 
 export default function RootLayout({

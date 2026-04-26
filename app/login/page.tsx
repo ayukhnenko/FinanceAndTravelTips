@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, Suspense, useRef } from "react";
 import { isCorrectVoicePassword, normalizeSpeechText } from "@/lib/voice-password";
@@ -183,6 +184,12 @@ function LoginForm() {
           >
             {pending === "bypass" ? "Вход…" : "Все равно зайду"}
           </button>
+
+          <p className="text-center text-sm">
+            <Link href="/" className="link-accent">
+              Вернуться на главную
+            </Link>
+          </p>
         </div>
 
         <p className="text-center text-xs text-[var(--muted)]">

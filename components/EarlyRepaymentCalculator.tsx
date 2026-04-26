@@ -96,18 +96,9 @@ export default function EarlyRepaymentCalculator({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-          Досрочное погашение кредита
-        </h1>
-        <p className="mt-2 text-[var(--muted)]">
-          Сравниваем эффективную ставку по кредиту (с учётом ипотеки +0,5 п.п.)
-          с ориентиром (НАОС): по умолчанию ключевая ставка ЦБ; при более высокой
-          ставке депозита она участвует в сравнении. Порог «13%» — насколько
-          ориентир выше ставки по кредиту в относительном выражении (
-          {Math.round(BENCHMARK_EXCESS_RATIO_STRONG * 100)}%).
-        </p>
-      </div>
+      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+        Выгодно ли гасить кредит досрочно
+      </h1>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">
