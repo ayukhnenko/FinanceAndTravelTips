@@ -48,10 +48,11 @@ export default function CreditCardBenefitCalculator({
 
   const result = useMemo(() => {
     if (!parsed.valid) return null;
+    const permanentAmount = (parsed.spending * parsed.effectiveDays * 12) / 365;
     const monthlyBenefit =
       parsed.spending * (parsed.rate / 100) * (parsed.effectiveDays / 365);
     const yearlyBenefit = monthlyBenefit * 12;
-    return { monthlyBenefit, yearlyBenefit };
+    return { permanentAmount, monthlyBenefit, yearlyBenefit };
   }, [parsed]);
 
   return (
@@ -121,13 +122,10 @@ export default function CreditCardBenefitCalculator({
           <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-5 shadow-inner">
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-[var(--muted)]">
-                Эффективный срок размещения в месяц
+                Сумма, которая может постоянно лежать на накопительном счете
               </span>
               <span className="font-semibold text-[var(--foreground)]">
-                {parsed.effectiveDays.toLocaleString("ru-RU", {
-                  maximumFractionDigits: 1,
-                })}{" "}
-                дн.
+                {rub.format(result.permanentAmount)}
               </span>
             </div>
             <div className="flex justify-between gap-4 text-sm">
