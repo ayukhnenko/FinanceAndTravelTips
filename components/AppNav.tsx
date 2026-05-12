@@ -17,6 +17,7 @@ const links = [
     label: "Выгодно ли продавать квартиру в ипотеке",
   },
   { href: "/loan", label: "Кредитный калькулятор" },
+  { href: "/credit-card-benefit", label: "Выгода от оплаты кредиткой" },
 ] as const;
 
 export default function AppNav() {
