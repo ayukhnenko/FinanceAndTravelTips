@@ -122,7 +122,7 @@ export default function EarlyRepaymentCalculator({
             onChange={(e) => setIsMortgage(e.target.checked)}
             className="h-4 w-4 rounded accent-[var(--accent)]"
           />
-          <span>Кредит является ипотекой (+0,5 п.п. к ставке для сравнения)</span>
+          <span>Кредит является ипотекой (+0,5 п.п. стоимость страховки)</span>
         </label>
 
         <label className="block">

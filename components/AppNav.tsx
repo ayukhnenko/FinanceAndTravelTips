@@ -5,19 +5,38 @@ import { usePathname, useRouter } from "next/navigation";
 import TelegramChannelPromo from "@/components/TelegramChannelPromo";
 import VisitBadge from "@/components/VisitBadge";
 
-const links = [
-  { href: "/", label: "Выгодно ли гасить кредит досрочно" },
+const navSections = [
   {
-    href: "/bonds",
-    label: "Сколько инвестиций нужно, чтобы покрыть кредит",
+    title: "Кредиты",
+    links: [
+      { href: "/", label: "Выгодно ли гасить кредит досрочно" },
+      {
+        href: "/bonds",
+        label: "Сколько инвестиций нужно, чтобы покрыть кредит",
+      },
+      { href: "/credit-card-benefit", label: "Выгода от оплаты кредиткой" },
+    ],
   },
-  { href: "/compound", label: "Калькулятор сложных процентов" },
   {
-    href: "/mortgage-sale",
-    label: "Выгодно ли продавать квартиру в ипотеке",
+    title: "Недвижимость",
+    links: [
+      {
+        href: "/mortgage-sale",
+        label: "Выгодно ли продавать квартиру в ипотеке",
+      },
+      {
+        href: "/rent-vs-buy",
+        label: "Аренда против покупки",
+      },
+    ],
   },
-  { href: "/loan", label: "Кредитный калькулятор" },
-  { href: "/credit-card-benefit", label: "Выгода от оплаты кредиткой" },
+  {
+    title: "Базовые вещи",
+    links: [
+      { href: "/compound", label: "Калькулятор сложных процентов" },
+      { href: "/loan", label: "Кредитный калькулятор" },
+    ],
+  },
 ] as const;
 
 export default function AppNav() {
@@ -35,24 +54,31 @@ export default function AppNav() {
         </Link>
       </div>
 
-      <nav className="flex flex-col gap-0.5 px-3 py-4">
-        {links.map(({ href, label }) => {
-          const active =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`rounded-lg px-3 py-2.5 text-left text-sm font-medium leading-snug transition ${
-                active
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-1 ring-[var(--accent)]/30"
-                  : "text-[var(--muted)] hover:bg-[var(--accent-soft)]/50 hover:text-[var(--foreground)]"
-              }`}
-            >
-              {label}
-            </Link>
-          );
-        })}
+      <nav className="flex flex-col gap-4 px-3 py-4">
+        {navSections.map((section) => (
+          <div key={section.title} className="space-y-1">
+            <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]">
+              {section.title}
+            </p>
+            {section.links.map(({ href, label }) => {
+              const active =
+                href === "/" ? pathname === "/" : pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`block rounded-lg px-3 py-2.5 text-left text-sm font-medium leading-snug transition ${
+                    active
+                      ? "bg-[var(--accent-soft)] text-[var(--accent)] ring-1 ring-[var(--accent)]/30"
+                      : "text-[var(--muted)] hover:bg-[var(--accent-soft)]/50 hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-[var(--border)] px-3 py-3">
