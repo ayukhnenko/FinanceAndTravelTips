@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/I18nProvider";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -9,12 +10,6 @@ const rub = new Intl.NumberFormat("ru-RU", {
 });
 
 type Period = "monthly" | "quarterly" | "yearly";
-
-const periods: { id: Period; label: string; nPerYear: number }[] = [
-  { id: "monthly", label: "Ежемесячно", nPerYear: 12 },
-  { id: "quarterly", label: "Ежеквартально", nPerYear: 4 },
-  { id: "yearly", label: "Раз в год", nPerYear: 1 },
-];
 
 function compoundAmount(
   principal: number,
@@ -29,6 +24,16 @@ function compoundAmount(
 }
 
 export default function CompoundInterestCalculator() {
+  const { tr } = useI18n();
+  const periods = useMemo<{ id: Period; label: string; nPerYear: number }[]>(
+    () => [
+      { id: "monthly", label: tr("Ежемесячно", "Monthly"), nPerYear: 12 },
+      { id: "quarterly", label: tr("Ежеквартально", "Quarterly"), nPerYear: 4 },
+      { id: "yearly", label: tr("Раз в год", "Yearly"), nPerYear: 1 },
+    ],
+    [tr]
+  );
+
   const [principal, setPrincipal] = useState("");
   const [rate, setRate] = useState("");
   const [years, setYears] = useState("");
@@ -52,7 +57,7 @@ export default function CompoundInterestCalculator() {
         Number.isFinite(y) &&
         y > 0,
     };
-  }, [principal, rate, years, period]);
+  }, [principal, rate, years, period, periods]);
 
   const result = useMemo(() => {
     if (!parsed.valid) return null;
@@ -69,13 +74,13 @@ export default function CompoundInterestCalculator() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        Калькулятор сложных процентов
+        {tr("Калькулятор сложных процентов", "Compound Interest Calculator")}
       </h1>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Начальная сумма, ₽
+            {tr("Начальная сумма, ₽", "Initial amount, ₽")}
           </span>
           <input
             type="text"
@@ -83,13 +88,13 @@ export default function CompoundInterestCalculator() {
             value={principal}
             onChange={(e) => setPrincipal(e.target.value)}
             className="field-input"
-            placeholder="например 100000"
+            placeholder={tr("например 100000", "e.g. 100000")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Годовая ставка, %
+            {tr("Годовая ставка, %", "Annual rate, %")}
           </span>
           <input
             type="text"
@@ -97,13 +102,13 @@ export default function CompoundInterestCalculator() {
             value={rate}
             onChange={(e) => setRate(e.target.value)}
             className="field-input"
-            placeholder="например 10"
+            placeholder={tr("например 10", "e.g. 10")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Срок, лет
+            {tr("Срок, лет", "Term, years")}
           </span>
           <input
             type="text"
@@ -111,13 +116,13 @@ export default function CompoundInterestCalculator() {
             value={years}
             onChange={(e) => setYears(e.target.value)}
             className="field-input"
-            placeholder="например 5"
+            placeholder={tr("например 5", "e.g. 5")}
           />
         </label>
 
         <fieldset>
           <legend className="mb-2 text-sm text-[var(--muted)]">
-            Капитализация
+            {tr("Капитализация", "Compounding")}
           </legend>
           <div className="flex flex-wrap gap-2">
             {periods.map((p) => (
@@ -140,25 +145,30 @@ export default function CompoundInterestCalculator() {
 
         {!parsed.valid ? (
           <p className="text-sm text-amber-800">
-            Укажите положительную сумму и срок, неотрицательную ставку.
+            {tr(
+              "Укажите положительную сумму и срок, неотрицательную ставку.",
+              "Enter a positive amount and term, and a non-negative rate."
+            )}
           </p>
         ) : result ? (
           <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-5 shadow-inner">
             <div className="flex justify-between gap-4 text-sm">
-              <span className="text-[var(--muted)]">Итоговая сумма</span>
+              <span className="text-[var(--muted)]">{tr("Итоговая сумма", "Final amount")}</span>
               <span className="font-semibold text-[var(--foreground)]">
                 {rub.format(result.amount)}
               </span>
             </div>
             <div className="flex justify-between gap-4 text-sm">
-              <span className="text-[var(--muted)]">Начисленные проценты</span>
+              <span className="text-[var(--muted)]">{tr("Начисленные проценты", "Accrued interest")}</span>
               <span className="font-semibold text-[var(--accent)]">
                 {rub.format(result.interest)}
               </span>
             </div>
             <p className="text-xs text-[var(--muted)]">
-              Формула: S = P · (1 + r/m)<sup>m·t</sup>, где m — число периодов
-              капитализации в год.
+              {tr(
+                "Формула: S = P · (1 + r/m)^m·t, где m — число периодов капитализации в год.",
+                "Formula: S = P · (1 + r/m)^m·t, where m is the number of compounding periods per year."
+              )}
             </p>
           </div>
         ) : null}

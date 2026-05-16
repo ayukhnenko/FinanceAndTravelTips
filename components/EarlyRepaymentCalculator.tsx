@@ -8,32 +8,12 @@ import {
   getEarlyRepaymentVerdict,
   type EarlyRepaymentVerdict,
 } from "@/lib/early-repayment";
+import { useI18n } from "@/components/I18nProvider";
 
 function pct(n: number): string {
   if (!Number.isFinite(n)) return "—";
   return `${n.toLocaleString("ru-RU", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}%`;
 }
-
-const verdictText: Record<
-  EarlyRepaymentVerdict,
-  { title: string; body: string; tone: "green" | "amber" | "blue" }
-> = {
-  invest_strong: {
-    title: "Вывод",
-    body: "Ориентир заметно выше вашей эффективной ставки по кредиту (более чем на 13%). Рекомендуем не гасить кредит досрочно, а разместить средства на депозите или вложить в ОФЗ.",
-    tone: "blue",
-  },
-  invest_flexible: {
-    title: "Вывод",
-    body: "Ориентир выше вашей эффективной ставки по кредиту, но не более чем на 13%. Рекомендуем также держать деньги на депозите или в ОФЗ с целью обеспечения гибкости. При большом желании досрочное погашение возможно.",
-    tone: "amber",
-  },
-  repay_early: {
-    title: "Вывод",
-    body: "Ориентир ниже или равен вашей эффективной ставке по кредиту. Рекомендуем досрочно гасить кредит.",
-    tone: "green",
-  },
-};
 
 type Props = {
   defaultNaosPercent: number;
@@ -42,6 +22,7 @@ type Props = {
 export default function EarlyRepaymentCalculator({
   defaultNaosPercent,
 }: Props) {
+  const { tr } = useI18n();
   const [rate, setRate] = useState("");
   const [isMortgage, setIsMortgage] = useState(false);
   const [naos, setNaos] = useState(() =>
@@ -94,16 +75,49 @@ export default function EarlyRepaymentCalculator({
     blue: "border-sky-300 bg-sky-50 text-sky-950",
   };
 
+  const verdictText: Record<
+    EarlyRepaymentVerdict,
+    { title: string; body: string; tone: "green" | "amber" | "blue" }
+  > = {
+    invest_strong: {
+      title: tr("Вывод", "Conclusion"),
+      body: tr(
+        "Ориентир заметно выше вашей эффективной ставки по кредиту (более чем на 13%). Рекомендуем не гасить кредит досрочно, а разместить средства на депозите или вложить в ОФЗ.",
+        "Your benchmark is well above your effective loan rate (by more than 13%). It is usually better not to repay early and place funds in a deposit or OFZ bonds."
+      ),
+      tone: "blue",
+    },
+    invest_flexible: {
+      title: tr("Вывод", "Conclusion"),
+      body: tr(
+        "Ориентир выше вашей эффективной ставки по кредиту, но не более чем на 13%. Рекомендуем также держать деньги на депозите или в ОФЗ с целью обеспечения гибкости. При большом желании досрочное погашение возможно.",
+        "Your benchmark is above your effective loan rate, but by no more than 13%. Keeping funds in deposits or OFZ bonds is still preferable for flexibility. Early repayment is optional."
+      ),
+      tone: "amber",
+    },
+    repay_early: {
+      title: tr("Вывод", "Conclusion"),
+      body: tr(
+        "Ориентир ниже или равен вашей эффективной ставке по кредиту. Рекомендуем досрочно гасить кредит.",
+        "Your benchmark is below or equal to your effective loan rate. Early repayment is likely the better choice."
+      ),
+      tone: "green",
+    },
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        Выгодно ли гасить кредит досрочно
+        {tr(
+          "Выгодно ли гасить кредит досрочно",
+          "Is Early Repayment Worth It?"
+        )}
       </h1>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Процентная ставка по кредиту в год, %
+            {tr("Процентная ставка по кредиту в год, %", "Loan interest rate per year, %")}
           </span>
           <input
             type="text"
@@ -111,7 +125,7 @@ export default function EarlyRepaymentCalculator({
             value={rate}
             onChange={(e) => setRate(e.target.value)}
             className="field-input"
-              placeholder="например 12"
+            placeholder={tr("например 12", "e.g. 12")}
           />
         </label>
 
@@ -122,12 +136,17 @@ export default function EarlyRepaymentCalculator({
             onChange={(e) => setIsMortgage(e.target.checked)}
             className="h-4 w-4 rounded accent-[var(--accent)]"
           />
-          <span>Кредит является ипотекой (+0,5 п.п. стоимость страховки)</span>
+          <span>
+            {tr(
+              "Кредит является ипотекой (+0,5 п.п. стоимость страховки)",
+              "This loan is a mortgage (+0.5 p.p. insurance cost)"
+            )}
+          </span>
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Ориентир (НАОС), % годовых
+            {tr("Ориентир (НАОС), % годовых", "Benchmark (NAOS), % per year")}
           </span>
           <input
             type="text"
@@ -138,8 +157,10 @@ export default function EarlyRepaymentCalculator({
             placeholder={String(defaultNaosPercent)}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            По умолчанию подставлена ключевая ставка Банка России (при отсутствии
-            данных на сервере — проверьте значение на{" "}
+            {tr(
+              "По умолчанию подставлена ключевая ставка Банка России (при отсутствии данных на сервере — проверьте значение на",
+              "By default, this field uses the Bank of Russia key rate (if unavailable on server, check"
+            )}{" "}
             <a
               href="https://www.cbr.ru/hd_base/KeyRate/"
               target="_blank"
@@ -148,13 +169,13 @@ export default function EarlyRepaymentCalculator({
             >
               cbr.ru
             </a>
-            ).
+            {tr(").", ").")}
           </span>
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Ставка по депозиту (необязательно), % годовых
+            {tr("Ставка по депозиту (необязательно), % годовых", "Deposit rate (optional), % per year")}
           </span>
           <input
             type="text"
@@ -162,17 +183,22 @@ export default function EarlyRepaymentCalculator({
             value={deposit}
             onChange={(e) => setDeposit(e.target.value)}
             className="field-input"
-            placeholder="оставьте пустым, если нет"
+            placeholder={tr("оставьте пустым, если нет", "leave empty if none")}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            Если указана и она выше НАОС — для сравнения берётся она; если ниже
-            или равна НАОС — используется НАОС.
+            {tr(
+              "Если указана и она выше НАОС — для сравнения берётся она; если ниже или равна НАОС — используется НАОС.",
+              "If provided and above NAOS, it is used for comparison; if lower or equal, NAOS is used."
+            )}
           </span>
         </label>
 
         {!parsed.valid ? (
           <p className="text-sm text-amber-800">
-            Проверьте ввод: ставки должны быть неотрицательными числами.
+            {tr(
+              "Проверьте ввод: ставки должны быть неотрицательными числами.",
+              "Check input: rates must be non-negative numbers."
+            )}
           </p>
         ) : null}
 
@@ -182,7 +208,7 @@ export default function EarlyRepaymentCalculator({
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
-          Рассчитать
+          {tr("Рассчитать", "Calculate")}
         </button>
       </div>
 
@@ -191,20 +217,20 @@ export default function EarlyRepaymentCalculator({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                Эффективная ставка по кредиту
+                {tr("Эффективная ставка по кредиту", "Effective loan rate")}
               </p>
               <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
                 {pct(snapshot.creditEff)}
               </p>
               {isMortgage ? (
                 <p className="mt-1 text-xs text-[var(--muted)]">
-                  С учётом +0,5 п.п. для ипотеки
+                  {tr("С учётом +0,5 п.п. для ипотеки", "Including +0.5 p.p. for mortgage")}
                 </p>
               ) : null}
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                Ориентир для сравнения
+                {tr("Ориентир для сравнения", "Benchmark for comparison")}
               </p>
               <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
                 {pct(snapshot.bench)}
@@ -213,24 +239,32 @@ export default function EarlyRepaymentCalculator({
               Number.isFinite(parsed.deposit) &&
               parsed.deposit > parsed.naos ? (
                 <p className="mt-1 text-xs text-[var(--muted)]">
-                  Использована ставка депозита (выше НАОС)
+                  {tr(
+                    "Использована ставка депозита (выше НАОС)",
+                    "Deposit rate used (higher than NAOS)"
+                  )}
                 </p>
               ) : (
-                <p className="mt-1 text-xs text-[var(--muted)]">НАОС (или депозит, если выгоднее)</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {tr("НАОС (или депозит, если выгоднее)", "NAOS (or deposit, if better)")}
+                </p>
               )}
             </div>
           </div>
 
           {Number.isFinite(snapshot.margin) && snapshot.bench > snapshot.creditEff ? (
             <p className="text-center text-sm text-[var(--muted)]">
-              Ориентир выше ставки по кредиту на{" "}
+              {tr("Ориентир выше ставки по кредиту на", "Benchmark is above loan rate by")}{" "}
               <span className="font-semibold text-[var(--accent)]">
                 {(snapshot.margin * 100).toLocaleString("ru-RU", {
                   maximumFractionDigits: 2,
                 })}
                 %
               </span>{" "}
-              относительно (порог «сильной» рекомендации во вкладку/ОФЗ:{" "}
+              {tr(
+                "относительно (порог «сильной» рекомендации во вкладку/ОФЗ:",
+                "relative (threshold for a strong deposit/OFZ recommendation:"
+              )}{" "}
               {(BENCHMARK_EXCESS_RATIO_STRONG * 100).toLocaleString("ru-RU")}%).
             </p>
           ) : null}

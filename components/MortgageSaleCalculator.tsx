@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/I18nProvider";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -58,6 +59,7 @@ type Props = {
 };
 
 export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
+  const { tr } = useI18n();
   const [propertyValue, setPropertyValue] = useState("");
   const [debt, setDebt] = useState("");
   const [monthlyPayment, setMonthlyPayment] = useState("");
@@ -173,21 +175,24 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
   } as const;
 
   const verdictTitle = {
-    hold: "Выгоднее оставлять квартиру и сдавать",
-    sell: "Выгоднее продать квартиру и вложить остаток средств",
-    equal: "Оба варианта почти равнозначны",
+    hold: tr("Выгоднее оставлять квартиру и сдавать", "Keeping and renting out is better"),
+    sell: tr("Выгоднее продать квартиру и вложить остаток средств", "Selling and investing the proceeds is better"),
+    equal: tr("Оба варианта почти равнозначны", "Both options are almost equivalent"),
   } as const;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        Выгодно ли продавать квартиру в ипотеке
+        {tr(
+          "Выгодно ли продавать квартиру в ипотеке",
+          "Is Selling a Mortgaged Apartment Worth It?"
+        )}
       </h1>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Текущая стоимость квартиры, ₽
+            {tr("Текущая стоимость квартиры, ₽", "Current apartment value, ₽")}
           </span>
           <input
             type="text"
@@ -195,13 +200,13 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
             value={propertyValue}
             onChange={(e) => setPropertyValue(e.target.value)}
             className="field-input"
-            placeholder="например 12 500 000"
+            placeholder={tr("например 12 500 000", "e.g. 12 500 000")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Остаток долга по ипотеке, ₽
+            {tr("Остаток долга по ипотеке, ₽", "Remaining mortgage debt, ₽")}
           </span>
           <input
             type="text"
@@ -209,13 +214,13 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
             value={debt}
             onChange={(e) => setDebt(e.target.value)}
             className="field-input"
-            placeholder="например 5 000 000"
+            placeholder={tr("например 5 000 000", "e.g. 5 000 000")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Ежемесячный платеж по ипотеке, ₽
+            {tr("Ежемесячный платеж по ипотеке, ₽", "Monthly mortgage payment, ₽")}
           </span>
           <input
             type="text"
@@ -223,13 +228,13 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
             value={monthlyPayment}
             onChange={(e) => setMonthlyPayment(e.target.value)}
             className="field-input"
-            placeholder="например 65 000"
+            placeholder={tr("например 65 000", "e.g. 65 000")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Оставшийся срок ипотеки, месяцев
+            {tr("Оставшийся срок ипотеки, месяцев", "Remaining mortgage term, months")}
           </span>
           <input
             type="text"
@@ -237,13 +242,13 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
             value={monthsLeft}
             onChange={(e) => setMonthsLeft(e.target.value)}
             className="field-input"
-            placeholder="например 180"
+            placeholder={tr("например 180", "e.g. 180")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Арендный платеж (если квартира сдается), ₽/мес
+            {tr("Арендный платеж (если квартира сдается), ₽/мес", "Rental payment (if rented out), ₽/month")}
           </span>
           <input
             type="text"
@@ -251,13 +256,16 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
             value={rentPayment}
             onChange={(e) => setRentPayment(e.target.value)}
             className="field-input"
-            placeholder="можно оставить пустым"
+            placeholder={tr("можно оставить пустым", "can be left empty")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Ожидаемый процент ежегодного роста арендного платежа, %
+            {tr(
+              "Ожидаемый процент ежегодного роста арендного платежа, %",
+              "Expected annual rent growth, %"
+            )}
           </span>
           <input
             type="text"
@@ -265,13 +273,13 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
             value={rentGrowthPercent}
             onChange={(e) => setRentGrowthPercent(e.target.value)}
             className="field-input"
-            placeholder="можно оставить пустым (0%)"
+            placeholder={tr("можно оставить пустым (0%)", "can be left empty (0%)")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            НАОС, % годовых
+            {tr("НАОС, % годовых", "NAOS, % per year")}
           </span>
           <input
             type="text"
@@ -282,13 +290,19 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
             placeholder={String(defaultNaosPercent)}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            Ставка вложения средств на срок, равный оставшемуся сроку ипотеки.
+            {tr(
+              "Ставка вложения средств на срок, равный оставшемуся сроку ипотеки.",
+              "Investment rate for a period equal to the remaining mortgage term."
+            )}
           </span>
         </label>
 
         {!parsed.valid ? (
           <p className="text-sm text-amber-800">
-            Проверьте ввод: сумма долга не должна превышать стоимость квартиры, срок — целое число больше нуля, ставки и платежи — неотрицательные.
+            {tr(
+              "Проверьте ввод: сумма долга не должна превышать стоимость квартиры, срок — целое число больше нуля, ставки и платежи — неотрицательные.",
+              "Check input: debt must not exceed apartment value, term must be a positive integer, and rates/payments must be non-negative."
+            )}
           </p>
         ) : null}
 
@@ -298,7 +312,7 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
-          Рассчитать
+          {tr("Рассчитать", "Calculate")}
         </button>
       </div>
 
@@ -307,26 +321,31 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                Сценарий «Продать и вложить»
+                {tr("Сценарий «Продать и вложить»", "Scenario: sell and invest")}
               </p>
               <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
                 {rub.format(result.sellFuture)}
               </p>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                Из продажи остается {rub.format(result.proceedsAfterSale)}, далее эта сумма растет под {pct(parsed.naos)} на {parsed.months} мес.
+                {tr(
+                  `Из продажи остается ${rub.format(result.proceedsAfterSale)}, далее эта сумма растет под ${pct(parsed.naos)} на ${parsed.months} мес.`,
+                  `After sale, ${rub.format(result.proceedsAfterSale)} remains, then it grows at ${pct(parsed.naos)} for ${parsed.months} months.`
+                )}
               </p>
             </div>
 
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                Сценарий «Оставить и сдавать»
+                {tr("Сценарий «Оставить и сдавать»", "Scenario: keep and rent out")}
               </p>
               <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
                 {rub.format(result.holdFutureNoGrowth)}
               </p>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                При нулевом росте цены квартиры учитывается сама квартира ({rub.format(parsed.value)}) и месячный поток {result.monthlyNetFromHold >= 0 ? "+" : ""}
-                {rub.format(result.monthlyNetFromHold)}. Рост аренды: {pct(parsed.rentGrowth)} в год (от {rub.format(result.rentFirstMonth)} до {rub.format(result.rentLastMonth)} в месяц).
+                {tr(
+                  `При нулевом росте цены квартиры учитывается сама квартира (${rub.format(parsed.value)}) и месячный поток ${result.monthlyNetFromHold >= 0 ? "+" : ""}${rub.format(result.monthlyNetFromHold)}. Рост аренды: ${pct(parsed.rentGrowth)} в год (от ${rub.format(result.rentFirstMonth)} до ${rub.format(result.rentLastMonth)} в месяц).`,
+                  `At zero apartment price growth, we account for the apartment itself (${rub.format(parsed.value)}) and monthly cash flow ${result.monthlyNetFromHold >= 0 ? "+" : ""}${rub.format(result.monthlyNetFromHold)}. Rent growth: ${pct(parsed.rentGrowth)} per year (from ${rub.format(result.rentFirstMonth)} to ${rub.format(result.rentLastMonth)} per month).`
+                )}
               </p>
             </div>
           </div>
@@ -336,25 +355,39 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
               {verdictTitle[result.verdict]}
             </p>
             <p className="mt-2 text-sm leading-relaxed opacity-95">
-              Разница итогового капитала на горизонте {result.yearsLeft.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} лет составляет{" "}
+              {tr("Разница итогового капитала на горизонте", "Capital difference over")}{" "}
+              {result.yearsLeft.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}{" "}
+              {tr("лет составляет", "years amounts to")}{" "}
               <span className="font-semibold">{rub.format(Math.abs(result.diff))}</span>{" "}
-              в пользу варианта «{result.verdict === "sell" ? "продать" : result.verdict === "hold" ? "оставить" : "оба"}».
+              {tr("в пользу варианта", "in favor of")} «
+              {result.verdict === "sell"
+                ? tr("продать", "sell")
+                : result.verdict === "hold"
+                  ? tr("оставить", "keep")
+                  : tr("оба", "both")}
+              ».
             </p>
 
             {result.verdict === "sell" ? (
               <p className="mt-2 text-sm leading-relaxed opacity-95">
-                Чтобы оба варианта стали равновыгодны, квартира должна дорожать в среднем примерно на{" "}
+                {tr(
+                  "Чтобы оба варианта стали равновыгодны, квартира должна дорожать в среднем примерно на",
+                  "For both options to become equal, apartment should appreciate by approximately"
+                )}{" "}
                 <span className="font-semibold">
                   {result.breakEvenGrowthPercent != null
                     ? pct(result.breakEvenGrowthPercent)
-                    : "недоступно для расчета"}
+                    : tr("недоступно для расчета", "not available for calculation")}
                 </span>{" "}
-                в год на всем оставшемся сроке.
+                {tr("в год на всем оставшемся сроке.", "per year over the remaining term.")}
               </p>
             ) : null}
 
             <p className="mt-2 text-xs leading-relaxed opacity-90">
-              Логика расчета: сравниваем итоговый капитал к концу срока ипотеки. В «продать» — инвестируем остаток после закрытия долга. В «оставить» — учитываем стоимость квартиры плюс накопленный эффект от разницы аренды и ежемесячного платежа под ту же ставку НАОС.
+              {tr(
+                "Логика расчета: сравниваем итоговый капитал к концу срока ипотеки. В «продать» — инвестируем остаток после закрытия долга. В «оставить» — учитываем стоимость квартиры плюс накопленный эффект от разницы аренды и ежемесячного платежа под ту же ставку НАОС.",
+                "Calculation logic: compare final capital at mortgage horizon. In “sell”, we invest proceeds after debt repayment. In “keep”, we account for apartment value plus accumulated effect of rent-payment difference at the same NAOS rate."
+              )}
             </p>
           </div>
         </div>

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { I18nProvider } from "@/components/I18nProvider";
 
 export const metadata: Metadata = {
-  title: "Финансовая логика жизни",
+  title: "Калькуляторы для жизни",
   description: "Финансовые сервисы для жизни",
 };
 
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

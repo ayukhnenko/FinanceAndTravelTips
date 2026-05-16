@@ -6,6 +6,7 @@ import {
   presentValueOfMonthlyPayments,
   semiannualCouponFromNominal,
 } from "@/lib/bonds-for-credit";
+import { useI18n } from "@/components/I18nProvider";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -20,6 +21,7 @@ type Props = {
 export default function BondsForCreditCalculator({
   defaultKeyRatePercent,
 }: Props) {
+  const { tr } = useI18n();
   const [monthlyPayment, setMonthlyPayment] = useState("");
   const [monthsLeft, setMonthsLeft] = useState("");
   const [remainingDebt, setRemainingDebt] = useState("");
@@ -86,14 +88,20 @@ export default function BondsForCreditCalculator({
       const diff = pv - parsed.debt;
       let text: string;
       if (Math.abs(diff) < 1) {
-        text =
-          "Расчётная сумма вложений близка к оценке остатка долга (в этой модели).";
+        text = tr(
+          "Расчётная сумма вложений близка к оценке остатка долга (в этой модели).",
+          "Estimated investment amount is close to your debt balance estimate in this model."
+        );
       } else if (diff > 0) {
-        text =
-          "Расчётная сумма вложений по дисконтированию платежей выше оценки текущего долга: поток платежей «дороже» в приведённой стоимости, чем указанный остаток (возможны разные ставки по кредиту и по облигациям или неточная оценка долга).";
+        text = tr(
+          "Расчётная сумма вложений по дисконтированию платежей выше оценки текущего долга: поток платежей «дороже» в приведённой стоимости, чем указанный остаток (возможны разные ставки по кредиту и по облигациям или неточная оценка долга).",
+          "Discounted investment estimate is higher than current debt estimate: present value of payments is larger than stated balance (possible due to different loan and bond rates, or a rough debt estimate)."
+        );
       } else {
-        text =
-          "Оценка текущего долга выше расчётной суммы вложений: тело кредита больше, чем приведённая стоимость оставшихся платежей при ставке ЦБ — типично при ставке по кредиту выше ключевой.";
+        text = tr(
+          "Оценка текущего долга выше расчётной суммы вложений: тело кредита больше, чем приведённая стоимость оставшихся платежей при ставке ЦБ — типично при ставке по кредиту выше ключевой.",
+          "Current debt estimate is higher than investment estimate: loan principal is above discounted value of remaining payments at key rate, which is typical when loan rate is above the key rate."
+        );
       }
       debtVsPv = { diff, debt: parsed.debt, text };
     }
@@ -108,18 +116,18 @@ export default function BondsForCreditCalculator({
       annualLoan,
       debtVsPv,
     };
-  }, [parsed]);
+  }, [parsed, tr]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        Сколько инвестиций нужно, чтобы покрыть кредит
+        {tr("Сколько инвестиций нужно, чтобы покрыть кредит", "How Much Should You Invest to Cover a Loan?")}
       </h1>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Ежемесячный платёж по кредиту, ₽
+            {tr("Ежемесячный платёж по кредиту, ₽", "Monthly loan payment, ₽")}
           </span>
           <input
             type="text"
@@ -127,13 +135,13 @@ export default function BondsForCreditCalculator({
             value={monthlyPayment}
             onChange={(e) => setMonthlyPayment(e.target.value)}
             className="field-input"
-            placeholder="например 35000"
+            placeholder={tr("например 35000", "e.g. 35000")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Сколько месяцев ещё выплачивать кредит
+            {tr("Сколько месяцев ещё выплачивать кредит", "Months remaining to repay")}
           </span>
           <input
             type="text"
@@ -147,7 +155,7 @@ export default function BondsForCreditCalculator({
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Оценка текущего остатка долга по кредиту, ₽
+            {tr("Оценка текущего остатка долга по кредиту, ₽", "Estimated current debt balance, ₽")}
           </span>
           <input
             type="text"
@@ -155,18 +163,19 @@ export default function BondsForCreditCalculator({
             value={remainingDebt}
             onChange={(e) => setRemainingDebt(e.target.value)}
             className="field-input"
-            placeholder="например 2 500 000"
+            placeholder={tr("например 2 500 000", "e.g. 2 500 000")}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            Ваш ориентир по телу кредита на сегодня — для сравнения с
-            расчётной суммой вложений. Можно оставить пустым, тогда блок
-            сравнения не покажется.
+            {tr(
+              "Ваш ориентир по телу кредита на сегодня — для сравнения с расчётной суммой вложений. Можно оставить пустым, тогда блок сравнения не покажется.",
+              "Your current principal estimate for comparison with calculated investment amount. Leave empty to hide comparison."
+            )}
           </span>
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Годовая доходность (ключевая ставка ЦБ), %
+            {tr("Годовая доходность (ключевая ставка ЦБ), %", "Annual yield (CB key rate), %")}
           </span>
           <input
             type="text"
@@ -176,15 +185,17 @@ export default function BondsForCreditCalculator({
             className="field-input"
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            По умолчанию подставляется значение с сервера; при необходимости
-            обновите вручную по данным{" "}
+            {tr(
+              "По умолчанию подставляется значение с сервера; при необходимости обновите вручную по данным",
+              "Default value is loaded from server; update manually using"
+            )}{" "}
             <a
               href="https://www.cbr.ru/hd_base/KeyRate/"
               target="_blank"
               rel="noopener noreferrer"
               className="link-accent"
             >
-              ЦБ РФ
+              {tr("ЦБ РФ", "CBR")}
             </a>
             .
           </span>
@@ -192,8 +203,10 @@ export default function BondsForCreditCalculator({
 
         {!parsed.valid && (monthlyPayment || monthsLeft) ? (
           <p className="text-sm text-amber-800">
-            Укажите положительный платёж, целое число месяцев не меньше 1 и
-            неотрицательный остаток долга (или оставьте поле долга пустым).
+            {tr(
+              "Укажите положительный платёж, целое число месяцев не меньше 1 и неотрицательный остаток долга (или оставьте поле долга пустым).",
+              "Enter a positive payment, integer months >= 1, and non-negative debt balance (or leave debt field empty)."
+            )}
           </p>
         ) : null}
 
@@ -203,7 +216,7 @@ export default function BondsForCreditCalculator({
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
-          Рассчитать
+          {tr("Рассчитать", "Calculate")}
         </button>
       </div>
 
@@ -211,11 +224,16 @@ export default function BondsForCreditCalculator({
         <div className="mt-8 space-y-6">
           <div className="card-panel space-y-4 !shadow-[var(--shadow-card)]">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">
-              1. Приведённая сумма вложений (дисконтирование платежей)
+              {tr(
+                "1. Приведённая сумма вложений (дисконтирование платежей)",
+                "1. Present value investment (discounted payments)"
+              )}
             </h2>
             <p className="text-[var(--muted)]">
-              Ориентировочная сумма покупки облигаций при доходности ≈ ключевой
-              ставке и двух купонах в год (модель покрытия потока платежей):
+              {tr(
+                "Ориентировочная сумма покупки облигаций при доходности ≈ ключевой ставке и двух купонах в год (модель покрытия потока платежей):",
+                "Estimated bond amount at yield close to key rate with two coupons per year (payment stream coverage model):"
+              )}
             </p>
             <p className="text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
               {rub.format(result.pv)}
@@ -223,22 +241,22 @@ export default function BondsForCreditCalculator({
 
             {result.debtVsPv ? (
               <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm">
-                <p className="font-semibold text-sky-950">Сравнение с долгом</p>
+                <p className="font-semibold text-sky-950">{tr("Сравнение с долгом", "Debt comparison")}</p>
                 <ul className="mt-2 space-y-1.5 text-[var(--muted)]">
                   <li>
-                    Оценка остатка долга:{" "}
+                    {tr("Оценка остатка долга:", "Debt estimate:")}{" "}
                     <span className="tabular-nums font-medium text-[var(--foreground)]">
                       {rub.format(result.debtVsPv.debt)}
                     </span>
                   </li>
                   <li>
-                    Расчётная сумма вложений:{" "}
+                    {tr("Расчётная сумма вложений:", "Calculated investment:")}{" "}
                     <span className="tabular-nums font-medium text-[var(--foreground)]">
                       {rub.format(result.pv)}
                     </span>
                   </li>
                   <li>
-                    Разница (вложения − долг):{" "}
+                    {tr("Разница (вложения − долг):", "Difference (investment − debt):")}{" "}
                     <span
                       className={
                         result.debtVsPv.diff >= 0
@@ -258,43 +276,47 @@ export default function BondsForCreditCalculator({
 
             <div className="space-y-2 border-t border-[var(--border)] pt-4 text-sm text-[var(--muted)]">
               <p>
-                При такой сумме и ставке{" "}
+                {tr("При такой сумме и ставке", "At this amount and")}{" "}
                 <span className="font-medium text-[var(--foreground)]">
                   {parsed.key.toLocaleString("ru-RU", {
                     maximumFractionDigits: 2,
                   })}
-                  % годовых
+                  {tr("% annual", "% annual")}
                 </span>{" "}
-                один полугодовой купон составляет около{" "}
+                {tr("one semiannual coupon is about", "one semiannual coupon is about")}{" "}
                 <span className="font-medium text-[var(--foreground)]">
                   {rub.format(result.semi)}
                 </span>
-                , за 6 месяцев по кредиту нужно{" "}
+                {tr(", while 6 months of loan payments require", ", while 6 months of loan payments require")}{" "}
                 <span className="font-medium text-[var(--foreground)]">
                   {rub.format(result.sixMonthsLoan)}
                 </span>
                 .
               </p>
               <p className="text-xs leading-relaxed">
-                Формула: приведённая стоимость {parsed.months} платежей при r =
-                ключевая / 12 / 100.
+                {tr(
+                  `Формула: приведённая стоимость ${parsed.months} платежей при r = ключевая / 12 / 100.`,
+                  `Formula: present value of ${parsed.months} payments at r = key rate / 12 / 100.`
+                )}
               </p>
             </div>
           </div>
 
           <div className="card-panel space-y-4 !shadow-[var(--shadow-card)]">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">
-              2. Только купоны, тело не трогаем
+              {tr("2. Только купоны, тело не трогаем", "2. Coupons only, principal untouched")}
             </h2>
             <p className="text-[var(--muted)]">
-              Сколько нужно в облигациях при той же годовой доходности ({""}
+              {tr("Сколько нужно в облигациях при той же годовой доходности (", "Required bond amount at the same annual yield (")}
               {parsed.key.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}
-              %), чтобы{" "}
+              {tr("%), to ", "%), to ")}
               <strong className="font-semibold text-[var(--foreground)]">
-                полностью оплачивать кредит только за счёт купонов
+                {tr("полностью оплачивать кредит только за счёт купонов", "fully pay loan only from coupons")}
               </strong>{" "}
-              (годовой купонный поток = 12 месячных платежей, накопленная сумма
-              номинала не уменьшается).
+              {tr(
+                "(годовой купонный поток = 12 месячных платежей, накопленная сумма номинала не уменьшается).",
+                "(annual coupon flow = 12 monthly payments, nominal amount is preserved)."
+              )}
             </p>
             <p className="text-3xl font-bold text-[var(--accent)] sm:text-4xl">
               {Number.isFinite(result.couponOnlyNominal)
@@ -303,17 +325,19 @@ export default function BondsForCreditCalculator({
             </p>
             <div className="space-y-2 text-sm text-[var(--muted)]">
               <p>
-                Годовой купонный денежный поток:{" "}
+                {tr("Годовой купонный денежный поток:", "Annual coupon cash flow:")}{" "}
                 <span className="font-medium text-[var(--foreground)]">
                   {Number.isFinite(result.annualCoupons)
                     ? rub.format(result.annualCoupons)
                     : "—"}
                 </span>{" "}
-                ({rub.format(result.annualLoan)} в год уходит на платежи по
-                кредиту).
+                {tr(
+                  `(${rub.format(result.annualLoan)} в год уходит на платежи по кредиту).`,
+                  `(${rub.format(result.annualLoan)} per year goes to loan payments).`
+                )}
               </p>
               <p>
-                Один полугодовой купон:{" "}
+                {tr("Один полугодовой купон:", "One semiannual coupon:")}{" "}
                 <span className="font-medium text-[var(--foreground)]">
                   {Number.isFinite(result.couponOnlySemi)
                     ? rub.format(result.couponOnlySemi)
@@ -323,12 +347,13 @@ export default function BondsForCreditCalculator({
                 <span className="font-medium text-[var(--foreground)]">
                   {rub.format(result.sixMonthsLoan)}
                 </span>{" "}
-                за 6 месяцев платежей.
+                {tr("for 6 months of payments.", "for 6 months of payments.")}
               </p>
               <p className="text-xs leading-relaxed">
-                Формула: N = 12 × платёж × 100 / ключевая ставка. Обычно N &gt;
-                приведённой суммы из п.1 при ограниченном сроке кредита: без
-                расходования тела нужен больший номинал.
+                {tr(
+                  "Формула: N = 12 × платёж × 100 / ключевая ставка. Обычно N > приведённой суммы из п.1 при ограниченном сроке кредита: без расходования тела нужен больший номинал.",
+                  "Formula: N = 12 × payment × 100 / key rate. Usually N is larger than value from p.1 for finite terms: preserving principal needs higher nominal."
+                )}
               </p>
             </div>
           </div>

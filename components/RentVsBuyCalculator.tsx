@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { annuityMonthlyPayment } from "@/lib/amortization";
+import { useI18n } from "@/components/I18nProvider";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -133,6 +134,7 @@ function breakEvenGrowthPercent(
 export default function RentVsBuyCalculator({
   defaultDepositRatePercent,
 }: Props) {
+  const { tr } = useI18n();
   const TAX_RATE_PERCENT = 13;
   const [rentCost, setRentCost] = useState("");
   const [apartmentPrice, setApartmentPrice] = useState("");
@@ -251,13 +253,13 @@ export default function RentVsBuyCalculator({
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        Аренда против покупки
+        {tr("Аренда против покупки", "Rent vs Buy")}
       </h1>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Стоимость аренды, ₽/мес
+            {tr("Стоимость аренды, ₽/мес", "Rent cost, ₽/month")}
           </span>
           <input
             type="text"
@@ -265,17 +267,19 @@ export default function RentVsBuyCalculator({
             value={rentCost}
             onChange={(e) => setRentCost(e.target.value)}
             className="field-input"
-            placeholder="например 65 000"
+            placeholder={tr("например 65 000", "e.g. 65 000")}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            Для корректного сравнения арендуемая и рассматриваемая для покупки квартиры
-            должны быть сопоставимы по классу и стоимости.
+            {tr(
+              "Для корректного сравнения арендуемая и рассматриваемая для покупки квартиры должны быть сопоставимы по классу и стоимости.",
+              "For a fair comparison, rental and purchase options should be similar in quality and value."
+            )}
           </span>
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Стоимость квартиры, ₽
+            {tr("Стоимость квартиры, ₽", "Apartment price, ₽")}
           </span>
           <input
             type="text"
@@ -283,13 +287,13 @@ export default function RentVsBuyCalculator({
             value={apartmentPrice}
             onChange={(e) => setApartmentPrice(e.target.value)}
             className="field-input"
-            placeholder="например 12 000 000"
+            placeholder={tr("например 12 000 000", "e.g. 12 000 000")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Ставка по ипотеке, % годовых
+            {tr("Ставка по ипотеке, % годовых", "Mortgage rate, % per year")}
           </span>
           <input
             type="text"
@@ -297,13 +301,13 @@ export default function RentVsBuyCalculator({
             value={mortgageRate}
             onChange={(e) => setMortgageRate(e.target.value)}
             className="field-input"
-            placeholder="например 14"
+            placeholder={tr("например 14", "e.g. 14")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Сумма первоначального взноса, ₽
+            {tr("Сумма первоначального взноса, ₽", "Down payment amount, ₽")}
           </span>
           <input
             type="text"
@@ -311,13 +315,16 @@ export default function RentVsBuyCalculator({
             value={downPayment}
             onChange={(e) => setDownPayment(e.target.value)}
             className="field-input"
-            placeholder="например 3 000 000"
+            placeholder={tr("например 3 000 000", "e.g. 3 000 000")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Ставка вклада для сценария аренды, % годовых
+            {tr(
+              "Ставка вклада для сценария аренды, % годовых",
+              "Deposit rate for rent scenario, % per year"
+            )}
           </span>
           <input
             type="text"
@@ -328,14 +335,16 @@ export default function RentVsBuyCalculator({
             placeholder={String(defaultDepositRatePercent)}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            По умолчанию подставлена ключевая ставка ЦБ. На эту ставку размещаются
-            первоначальный взнос и разница (платеж по ипотеке минус аренда).
+            {tr(
+              "По умолчанию подставлена ключевая ставка ЦБ. На эту ставку размещаются первоначальный взнос и разница (платеж по ипотеке минус аренда).",
+              "By default, this field uses the Bank of Russia key rate. Both the down payment and the difference (mortgage payment minus rent) are invested at this rate."
+            )}
           </span>
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Срок ипотеки, лет
+            {tr("Срок ипотеки, лет", "Mortgage term, years")}
           </span>
           <input
             type="text"
@@ -343,18 +352,22 @@ export default function RentVsBuyCalculator({
             value={mortgageTermYears}
             onChange={(e) => setMortgageTermYears(e.target.value)}
             className="field-input"
-            placeholder="например 20"
+            placeholder={tr("например 20", "e.g. 20")}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            Используем фиксированный платеж по аннуитету и считаем, что ставка ипотеки
-            и ставка вклада неизменны весь срок.
+            {tr(
+              "Используем фиксированный платеж по аннуитету и считаем, что ставка ипотеки и ставка вклада неизменны весь срок.",
+              "We use a fixed annuity payment and assume mortgage and deposit rates remain unchanged for the whole term."
+            )}
           </span>
         </label>
 
         {!parsed.valid ? (
           <p className="text-sm text-amber-800">
-            Проверьте ввод: стоимость квартиры должна быть больше нуля, первоначальный
-            взнос не может превышать стоимость, ставки и аренда неотрицательные.
+            {tr(
+              "Проверьте ввод: стоимость квартиры должна быть больше нуля, первоначальный взнос не может превышать стоимость, ставки и аренда неотрицательные.",
+              "Check input: apartment price must be above zero, down payment cannot exceed price, and rates/rent must be non-negative."
+            )}
           </p>
         ) : null}
 
@@ -364,7 +377,7 @@ export default function RentVsBuyCalculator({
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
-          Рассчитать
+          {tr("Рассчитать", "Calculate")}
         </button>
       </div>
 
@@ -372,7 +385,7 @@ export default function RentVsBuyCalculator({
         <div className="mt-8 space-y-4">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-              Платеж по ипотеке (оценка)
+              {tr("Платеж по ипотеке (оценка)", "Mortgage payment (estimate)")}
             </p>
             <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
               {rub.format(result.monthlyMortgagePayment)}
@@ -382,20 +395,21 @@ export default function RentVsBuyCalculator({
           <div className="space-y-3">
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                Капитал в сценарии аренды к концу срока
+                {tr("Капитал в сценарии аренды к концу срока", "Ending capital in the rent scenario")}
               </p>
               <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
                 {rub.format(result.rentFinalNet)}
               </p>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                С учетом налога на процентный доход по ставке {TAX_RATE_PERCENT.toLocaleString("ru-RU")}%
-                : налог {rub.format(result.taxAmount)} (процентный доход до налога{" "}
-                {rub.format(result.interestIncome)}, капитал до налога {rub.format(result.rentFinalGross)}).
+                {tr(
+                  `С учетом налога на процентный доход по ставке ${TAX_RATE_PERCENT.toLocaleString("ru-RU")}%: налог ${rub.format(result.taxAmount)} (процентный доход до налога ${rub.format(result.interestIncome)}, капитал до налога ${rub.format(result.rentFinalGross)}).`,
+                  `Includes tax on interest income at ${TAX_RATE_PERCENT.toLocaleString("ru-RU")}%: tax ${rub.format(result.taxAmount)} (pre-tax interest ${rub.format(result.interestIncome)}, pre-tax capital ${rub.format(result.rentFinalGross)}).`
+                )}
               </p>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                Капитал в сценарии покупки к концу срока
+                {tr("Капитал в сценарии покупки к концу срока", "Ending capital in the buy scenario")}
               </p>
               <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
                 {rub.format(result.buyFinal)}
@@ -406,13 +420,15 @@ export default function RentVsBuyCalculator({
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-5 py-4 shadow-sm">
             <p className="font-semibold text-[var(--foreground)]">
               {result.verdict === "buy"
-                ? "Выгоднее покупка"
+                ? tr("Выгоднее покупка", "Buying is better")
                 : result.verdict === "rent"
-                  ? "Выгоднее аренда"
-                  : "Варианты почти равнозначны"}
+                  ? tr("Выгоднее аренда", "Renting is better")
+                  : tr("Варианты почти равнозначны", "Options are almost equivalent")}
             </p>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Разница на горизонте {parsed.termYears.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} лет:
+              {tr("Разница на горизонте", "Difference over")}{" "}
+              {parsed.termYears.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}{" "}
+              {tr("лет:", "years:")}
               {" "}
               <span className="font-semibold text-[var(--foreground)]">
                 {rub.format(Math.abs(result.diff))}
@@ -420,20 +436,22 @@ export default function RentVsBuyCalculator({
               {result.verdict === "equal"
                 ? "."
                 : result.verdict === "buy"
-                  ? " в пользу покупки."
-                  : " в пользу аренды."}
+                  ? tr(" в пользу покупки.", " in favor of buying.")
+                  : tr(" в пользу аренды.", " in favor of renting.")}
             </p>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Процент изменения цены квартиры (и аренды на тот же процент), при котором
-              варианты сравняются:
+              {tr(
+                "Процент изменения цены квартиры (и аренды на тот же процент), при котором варианты сравняются:",
+                "Apartment price change rate (and rent by the same rate) at which options become equal:"
+              )}
               {" "}
               <span className="font-semibold text-[var(--foreground)]">
                 {result.equalGrowth == null
-                  ? "не удалось определить в разумном диапазоне"
+                  ? tr("не удалось определить в разумном диапазоне", "could not be found in reasonable range")
                   : `${result.equalGrowth.toLocaleString("ru-RU", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    })}% в год`}
+                    })}% ${tr("в год", "per year")}`}
               </span>
               .
             </p>

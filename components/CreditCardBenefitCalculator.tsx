@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/I18nProvider";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -15,6 +16,7 @@ type Props = {
 export default function CreditCardBenefitCalculator({
   defaultRatePercent,
 }: Props) {
+  const { tr } = useI18n();
   const [monthlySpending, setMonthlySpending] = useState("");
   const [graceDays, setGraceDays] = useState("");
   const [savingsRate, setSavingsRate] = useState(() =>
@@ -58,13 +60,13 @@ export default function CreditCardBenefitCalculator({
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        Выгода от оплаты кредиткой
+        {tr("Выгода от оплаты кредиткой", "Credit Card Spending Benefit")}
       </h1>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Средний уровень трат за месяц, ₽
+            {tr("Средний уровень трат за месяц, ₽", "Average monthly spending, ₽")}
           </span>
           <input
             type="text"
@@ -72,13 +74,13 @@ export default function CreditCardBenefitCalculator({
             value={monthlySpending}
             onChange={(e) => setMonthlySpending(e.target.value)}
             className="field-input"
-            placeholder="например 100000"
+            placeholder={tr("например 100000", "e.g. 100000")}
           />
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Срок грейс-периода, дней
+            {tr("Срок грейс-периода, дней", "Grace period, days")}
           </span>
           <input
             type="text"
@@ -86,17 +88,19 @@ export default function CreditCardBenefitCalculator({
             value={graceDays}
             onChange={(e) => setGraceDays(e.target.value)}
             className="field-input"
-            placeholder="например 50"
+            placeholder={tr("например 50", "e.g. 50")}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            В расчете используется значение грейс-периода минус 17 дней
-            (равномерные траты в течение месяца + 2 дня на погашение).
+            {tr(
+              "В расчете используется значение грейс-периода минус 17 дней (равномерные траты в течение месяца + 2 дня на погашение).",
+              "The calculator uses grace period minus 17 days (spending spread across the month + 2 days to repay)."
+            )}
           </span>
         </label>
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            Ставка по накопительному счету, % годовых
+            {tr("Ставка по накопительному счету, % годовых", "Savings account rate, % per year")}
           </span>
           <input
             type="text"
@@ -107,14 +111,19 @@ export default function CreditCardBenefitCalculator({
             placeholder={String(defaultRatePercent)}
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
-            По умолчанию подставлена ключевая ставка Банка России.
+            {tr(
+              "По умолчанию подставлена ключевая ставка Банка России.",
+              "By default, this field uses the Bank of Russia key rate."
+            )}
           </span>
         </label>
 
         {!parsed.valid ? (
           <p className="text-sm text-amber-800">
-            Проверьте ввод: траты и ставка должны быть неотрицательными, а
-            грейс-период — больше 17 дней.
+            {tr(
+              "Проверьте ввод: траты и ставка должны быть неотрицательными, а грейс-период — больше 17 дней.",
+              "Please check input: spending and rate must be non-negative, and grace period must be above 17 days."
+            )}
           </p>
         ) : null}
 
@@ -122,7 +131,10 @@ export default function CreditCardBenefitCalculator({
           <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-5 shadow-inner">
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-[var(--muted)]">
-                Сумма, которая может постоянно лежать на накопительном счете
+                {tr(
+                  "Сумма, которая может постоянно лежать на накопительном счете",
+                  "Amount you can keep on your savings account permanently"
+                )}
               </span>
               <span className="font-semibold text-[var(--foreground)]">
                 {rub.format(result.permanentAmount)}
@@ -130,14 +142,14 @@ export default function CreditCardBenefitCalculator({
             </div>
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-[var(--muted)]">
-                Экономия за месяц (оценка)
+                {tr("Экономия за месяц (оценка)", "Monthly savings (estimate)")}
               </span>
               <span className="font-semibold text-[var(--foreground)]">
                 {rub.format(result.monthlyBenefit)}
               </span>
             </div>
             <div className="flex justify-between gap-4 text-sm">
-              <span className="text-[var(--muted)]">Экономия за год</span>
+              <span className="text-[var(--muted)]">{tr("Экономия за год", "Savings per year")}</span>
               <span className="font-semibold text-[var(--accent)]">
                 {rub.format(result.yearlyBenefit)}
               </span>

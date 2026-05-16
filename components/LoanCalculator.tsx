@@ -18,6 +18,7 @@ import {
   type PaymentType,
   type ScheduleRow,
 } from "@/lib/amortization";
+import { useI18n } from "@/components/I18nProvider";
 
 export type LoanCalculatorInitial = {
   principal?: string;
@@ -77,6 +78,7 @@ export default function LoanCalculator({
 }: {
   initial?: LoanCalculatorInitial;
 }) {
+  const { tr } = useI18n();
   const [principal, setPrincipal] = useState(() =>
     initial?.principal != null && String(initial.principal).trim() !== ""
       ? normalizePrincipalInput(initial.principal)
@@ -157,7 +159,7 @@ export default function LoanCalculator({
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-          Калькулятор кредита
+          {tr("Калькулятор кредита", "Loan Calculator")}
         </h1>
       </header>
 
@@ -165,13 +167,9 @@ export default function LoanCalculator({
         <aside
           className="card-panel h-fit space-y-5 !shadow-[var(--shadow-card)]"
         >
-          <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--muted)]">
-            Параметры
-          </h2>
-
           <label className="block">
             <span className="mb-1.5 block text-sm text-[var(--muted)]">
-              Сумма кредита, ₽
+              {tr("Сумма кредита, ₽", "Loan Amount, ₽")}
             </span>
             <input
               type="text"
@@ -179,13 +177,13 @@ export default function LoanCalculator({
               value={principal}
               onChange={(e) => setPrincipal(e.target.value)}
               className="field-input"
-              placeholder="например 3 000 000"
+              placeholder={tr("например 3 000 000", "e.g. 3 000 000")}
             />
           </label>
 
           <label className="block">
             <span className="mb-1.5 block text-sm text-[var(--muted)]">
-              Процентная ставка в год, %
+              {tr("Процентная ставка в год, %", "Annual interest rate, %")}
             </span>
             <input
               type="text"
@@ -193,13 +191,13 @@ export default function LoanCalculator({
               value={annualRate}
               onChange={(e) => setAnnualRate(e.target.value)}
               className="field-input"
-              placeholder="например 12"
+              placeholder={tr("например 12", "e.g. 12")}
             />
           </label>
 
           <label className="block">
             <span className="mb-1.5 block text-sm text-[var(--muted)]">
-              Срок, лет
+              {tr("Срок, лет", "Term, years")}
             </span>
             <input
               type="text"
@@ -207,13 +205,13 @@ export default function LoanCalculator({
               value={termYears}
               onChange={(e) => setTermYears(e.target.value)}
               className="field-input"
-              placeholder="например 20"
+              placeholder={tr("например 20", "e.g. 20")}
             />
           </label>
 
           <fieldset>
             <legend className="mb-2 text-sm text-[var(--muted)]">
-              Тип платежей
+              {tr("Тип платежей", "Payment type")}
             </legend>
             <div className="flex flex-col gap-2">
               <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 has-[:checked]:border-[var(--accent)] has-[:checked]:bg-[var(--accent-soft)]">
@@ -224,7 +222,7 @@ export default function LoanCalculator({
                   onChange={() => setPaymentType("annuity")}
                   className="h-4 w-4 accent-[var(--accent)]"
                 />
-                <span>Аннуитетный</span>
+                <span>{tr("Аннуитетный", "Annuity")}</span>
               </label>
               <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 has-[:checked]:border-[var(--accent)] has-[:checked]:bg-[var(--accent-soft)]">
                 <input
@@ -234,14 +232,14 @@ export default function LoanCalculator({
                   onChange={() => setPaymentType("differentiated")}
                   className="h-4 w-4 accent-[var(--accent)]"
                 />
-                <span>Дифференцированный</span>
+                <span>{tr("Дифференцированный", "Differentiated")}</span>
               </label>
             </div>
           </fieldset>
 
           <div>
             <span className="mb-2 block text-sm text-[var(--muted)]">
-              График
+              {tr("График", "Chart")}
             </span>
             <div className="flex gap-2">
               <button
@@ -254,7 +252,7 @@ export default function LoanCalculator({
                     : "border-[var(--border)] bg-[var(--input-bg)] hover:bg-[var(--accent-soft)]/40"
                 }`}
               >
-                По месяцам
+                {tr("По месяцам", "By months")}
               </button>
               <button
                 type="button"
@@ -265,12 +263,15 @@ export default function LoanCalculator({
                     : "border-[var(--border)] bg-[var(--input-bg)] hover:bg-[var(--accent-soft)]/40"
                 }`}
               >
-                По годам
+                {tr("По годам", "By years")}
               </button>
             </div>
             {schedule.length > 120 && (
               <p className="mt-2 text-xs text-[var(--muted)]">
-                Срок &gt; 10 лет: график по умолчанию агрегирован по годам.
+                {tr(
+                  "Срок > 10 лет: график по умолчанию агрегирован по годам.",
+                  "Term > 10 years: chart is aggregated by years by default."
+                )}
               </p>
             )}
           </div>
@@ -279,21 +280,24 @@ export default function LoanCalculator({
         <section className="space-y-6">
           {!parsed.valid ? (
             <p className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-4 text-amber-900">
-              Проверьте ввод: сумма и срок должны быть больше нуля.
+              {tr(
+                "Проверьте ввод: сумма и срок должны быть больше нуля.",
+                "Check input: amount and term must be greater than zero."
+              )}
             </p>
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard
-                  label="Срок"
-                  value={`${parsed.termMonths} мес.`}
-                  sub={`≈ ${(parsed.termMonths / 12).toFixed(1)} г.`}
+                  label={tr("Срок", "Term")}
+                  value={`${parsed.termMonths} ${tr("мес.", "mo.")}`}
+                  sub={`≈ ${(parsed.termMonths / 12).toFixed(1)} ${tr("г.", "yr.")}`}
                 />
                 <StatCard
                   label={
                     paymentType === "annuity"
-                      ? "Ежемесячный платёж"
-                      : "Платёж (1-й / последн.)"
+                      ? tr("Ежемесячный платёж", "Monthly payment")
+                      : tr("Платёж (1-й / последн.)", "Payment (first / last)")
                   }
                   value={
                     paymentType === "annuity"
@@ -302,18 +306,18 @@ export default function LoanCalculator({
                   }
                 />
                 <StatCard
-                  label="Всего процентов"
+                  label={tr("Всего процентов", "Total interest")}
                   value={rub.format(totals.totalInterest)}
                 />
                 <StatCard
-                  label="Всего к доплате"
+                  label={tr("Всего к доплате", "Total Paid")}
                   value={rub.format(totals.totalPayment)}
                 />
               </div>
 
               <div className="card-panel !p-4 pb-2 sm:!p-6 !shadow-[var(--shadow-card)]">
                 <h3 className="mb-4 text-lg font-semibold text-[var(--foreground)]">
-                  Структура платежа: тело долга и проценты
+                  {tr("Структура платежа: тело долга и проценты", "Payment structure: principal and interest")}
                 </h3>
                 <div className="h-[320px] w-full min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
@@ -388,15 +392,15 @@ export default function LoanCalculator({
                         formatter={(value: number, name: string) => [
                           rub.format(value),
                           name === "principalPart"
-                            ? "Погашение долга"
-                            : "Проценты",
+                            ? tr("Погашение долга", "Principal repayment")
+                            : tr("Проценты", "Interest"),
                         ]}
                       />
                       <Legend
                         formatter={(value) =>
                           value === "principalPart"
-                            ? "Погашение долга"
-                            : "Проценты"
+                            ? tr("Погашение долга", "Principal repayment")
+                            : tr("Проценты", "Interest")
                         }
                       />
                       <Area
@@ -454,6 +458,7 @@ function StatCard({
 }
 
 function ScheduleTable({ rows }: { rows: ScheduleRow[] }) {
+  const { tr } = useI18n();
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? rows : rows.slice(0, 12);
 
@@ -461,7 +466,7 @@ function ScheduleTable({ rows }: { rows: ScheduleRow[] }) {
     <div className="card-panel !overflow-hidden !p-0 !shadow-[var(--shadow-card)]">
       <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
         <h3 className="text-lg font-semibold text-[var(--foreground)]">
-          График платежей
+          {tr("График платежей", "Payment schedule")}
         </h3>
         {rows.length > 12 && (
           <button
@@ -469,7 +474,9 @@ function ScheduleTable({ rows }: { rows: ScheduleRow[] }) {
             onClick={() => setShowAll((v) => !v)}
             className="text-sm font-medium text-[var(--link)] hover:text-[var(--accent-hover)]"
           >
-            {showAll ? "Свернуть" : `Все ${rows.length} месяцев`}
+            {showAll
+              ? tr("Свернуть", "Collapse")
+              : tr(`Все ${rows.length} месяцев`, `Show all ${rows.length} months`)}
           </button>
         )}
       </div>
@@ -477,11 +484,11 @@ function ScheduleTable({ rows }: { rows: ScheduleRow[] }) {
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] text-[var(--muted)]">
-              <th className="px-5 py-3 font-medium">№</th>
-              <th className="px-5 py-3 font-medium">Платёж</th>
-              <th className="px-5 py-3 font-medium">Долг</th>
-              <th className="px-5 py-3 font-medium">Проценты</th>
-              <th className="px-5 py-3 font-medium">Остаток</th>
+              <th className="px-5 py-3 font-medium">#</th>
+              <th className="px-5 py-3 font-medium">{tr("Платёж", "Payment")}</th>
+              <th className="px-5 py-3 font-medium">{tr("Долг", "Principal")}</th>
+              <th className="px-5 py-3 font-medium">{tr("Проценты", "Interest")}</th>
+              <th className="px-5 py-3 font-medium">{tr("Остаток", "Balance")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">

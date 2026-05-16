@@ -6,6 +6,7 @@ import { useCallback, useState, Suspense, useRef } from "react";
 import { isCorrectVoicePassword, normalizeSpeechText } from "@/lib/voice-password";
 import TelegramChannelPromo from "@/components/TelegramChannelPromo";
 import VisitBadge from "@/components/VisitBadge";
+import { useI18n } from "@/components/I18nProvider";
 
 type ListenState = "idle" | "listening" | "unsupported";
 
@@ -28,6 +29,7 @@ async function establishSession(entry: "voice" | "bypass"): Promise<boolean> {
 }
 
 function LoginForm() {
+  const { tr } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -54,7 +56,10 @@ function LoginForm() {
     if (!Ctor) {
       setListenState("unsupported");
       setVoiceError(
-        "Распознавание речи недоступно в этом браузере. Попробуйте Chrome или Edge."
+        tr(
+          "Распознавание речи недоступно в этом браузере. Попробуйте Chrome или Edge.",
+          "Voice recognition is not available in this browser. Try Chrome or Edge."
+        )
       );
       return;
     }
@@ -81,7 +86,10 @@ function LoginForm() {
         try {
           const ok = await establishSession("voice");
           if (ok) redirectAfterLogin();
-          else setVoiceError("Не удалось войти. Попробуйте ещё раз.");
+          else
+            setVoiceError(
+              tr("Не удалось войти. Попробуйте ещё раз.", "Failed to sign in. Please try again.")
+            );
         } finally {
           setPending(null);
         }
@@ -89,21 +97,31 @@ function LoginForm() {
       }
 
       setVoiceError(
-        `Пароль назван неверно (распознано: «${normalizeSpeechText(raw) || "…"}»). Попробуйте ещё раз или воспользуйтесь кнопкой ниже.`
+        tr(
+          `Пароль назван неверно (распознано: «${normalizeSpeechText(raw) || "…"}»). Попробуйте ещё раз или воспользуйтесь кнопкой ниже.`,
+          `Passphrase is incorrect (recognized: "${normalizeSpeechText(raw) || "..."}"). Try again or use the button below.`
+        )
       );
     };
 
     rec.onerror = (event: SpeechRecognitionErrorEvent) => {
       setListenState("idle");
       if (event.error === "not-allowed") {
-        setVoiceError("Нужен доступ к микрофону. Разрешите запись в настройках браузера.");
+        setVoiceError(
+          tr(
+            "Нужен доступ к микрофону. Разрешите запись в настройках браузера.",
+            "Microphone access is required. Enable it in your browser settings."
+          )
+        );
         return;
       }
       if (event.error === "no-speech") {
-        setVoiceError("Речь не распознана. Попробуйте ещё раз.");
+        setVoiceError(tr("Речь не распознана. Попробуйте ещё раз.", "We couldn't recognize your speech. Try again."));
         return;
       }
-      setVoiceError(`Ошибка микрофона: ${event.error}`);
+      setVoiceError(
+        tr(`Ошибка микрофона: ${event.error}`, `Microphone error: ${event.error}`)
+      );
     };
 
     rec.onend = () => {
@@ -115,9 +133,11 @@ function LoginForm() {
       rec.start();
     } catch {
       setListenState("idle");
-      setVoiceError("Не удалось запустить распознавание речи.");
+      setVoiceError(
+        tr("Не удалось запустить распознавание речи.", "Could not start speech recognition.")
+      );
     }
-  }, [redirectAfterLogin]);
+  }, [redirectAfterLogin, tr]);
 
   async function bypass() {
     setVoiceError(null);
@@ -125,7 +145,10 @@ function LoginForm() {
     try {
       const ok = await establishSession("bypass");
       if (ok) redirectAfterLogin();
-      else setVoiceError("Не удалось войти. Проверьте соединение.");
+      else
+        setVoiceError(
+          tr("Не удалось войти. Проверьте соединение.", "Failed to sign in. Check your connection.")
+        );
     } finally {
       setPending(null);
     }
@@ -137,7 +160,10 @@ function LoginForm() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--foreground)]">Вход</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Назовите вслух пароль или воспользуйтесь кнопкой ниже.
+            {tr(
+              "Назовите вслух пароль или воспользуйтесь кнопкой ниже.",
+              "Say the passphrase out loud or use the button below."
+            )}
           </p>
         </div>
 
@@ -149,13 +175,13 @@ function LoginForm() {
             className="btn-primary w-full"
           >
             {listenState === "listening"
-              ? "Слушаю… говорите сейчас"
-              : "Назвать пароль голосом"}
+              ? tr("Слушаю… говорите сейчас", "Listening... speak now")
+              : tr("Назвать пароль голосом", "Use voice passphrase")}
           </button>
 
           {lastHeard && !voiceError ? (
             <p className="text-center text-xs text-[var(--muted)]">
-              Распознано: «{lastHeard}»
+              {tr(`Распознано: «${lastHeard}»`, `Recognized: "${lastHeard}"`)}
             </p>
           ) : null}
 
@@ -171,7 +197,7 @@ function LoginForm() {
             </div>
             <div className="relative flex justify-center text-xs">
               <span className="bg-[var(--card)] px-2 text-[var(--muted)]">
-                или
+                {tr("или", "or")}
               </span>
             </div>
           </div>
@@ -182,25 +208,27 @@ function LoginForm() {
             disabled={pending !== null}
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] py-3 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]/30 disabled:opacity-50"
           >
-            {pending === "bypass" ? "Вход…" : "Все равно зайду"}
+            {pending === "bypass" ? tr("Вход…", "Signing in...") : tr("Все равно зайду", "Continue anyway")}
           </button>
 
           <p className="text-center text-sm">
             <Link href="/" className="link-accent">
-              Вернуться на главную
+              {tr("Вернуться на главную", "Back to home")}
             </Link>
           </p>
         </div>
 
         <p className="text-center text-xs text-[var(--muted)]">
-          Распознавание работает в Chrome, Edge и других браузерах с поддержкой
-          Web Speech API. На телефоне включите микрофон для сайта.
+          {tr(
+            "Распознавание работает в Chrome, Edge и других браузерах с поддержкой Web Speech API. На телефоне включите микрофон для сайта.",
+            "Voice recognition works in Chrome, Edge, and other browsers that support Web Speech API. On mobile, allow microphone access for this site."
+          )}
         </p>
 
         <TelegramChannelPromo />
 
         <div className="flex flex-col items-center gap-2 border-t border-[var(--border)] pt-4">
-          <span className="text-xs text-[var(--muted)]">Посещения</span>
+          <span className="text-xs text-[var(--muted)]">{tr("Посещения", "Visits")}</span>
           <VisitBadge />
         </div>
       </div>
@@ -209,11 +237,12 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { tr } = useI18n();
   return (
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center text-[var(--muted)]">
-          Загрузка…
+          {tr("Загрузка…", "Loading...")}
         </div>
       }
     >

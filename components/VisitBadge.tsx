@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/I18nProvider";
 
 /** Один успешный инкремент на вкладку; при 503 (не настроен Redis) lock не ставим — можно обновить страницу после настройки */
 const VISIT_LOCK_KEY = "fat_visit_lock_v1";
@@ -27,6 +28,7 @@ function EyeIcon({ className }: { className?: string }) {
 }
 
 export default function VisitBadge({ className = "" }: { className?: string }) {
+  const { tr } = useI18n();
   const [count, setCount] = useState<number | null | undefined>(undefined);
   const [configured, setConfigured] = useState<boolean | undefined>(undefined);
 
@@ -92,15 +94,21 @@ export default function VisitBadge({ className = "" }: { className?: string }) {
     configured === false
       ? "Счётчик не настроен: задайте UPSTASH_REDIS_REST_URL и UPSTASH_REDIS_REST_TOKEN в Vercel и сделайте Redeploy."
       : "Визитов за всё время (облако; один успешный зачёт за вкладку)";
+  const title = tr(
+    titleHint,
+    configured === false
+      ? "Counter is not configured: set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in Vercel and redeploy."
+      : "Total visits (cloud; one successful increment per tab)"
+  );
 
   return (
     <div
       className={`inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--muted)] shadow-sm ${className}`}
-      title={titleHint}
+      title={title}
     >
       <EyeIcon className="shrink-0 text-[var(--accent)]" />
       <span className="tabular-nums font-medium text-[var(--foreground)]">{label}</span>
-      <span className="hidden text-xs sm:inline">визитов</span>
+      <span className="hidden text-xs sm:inline">{tr("визитов", "visits")}</span>
     </div>
   );
 }
