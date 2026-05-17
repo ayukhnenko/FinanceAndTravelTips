@@ -1,18 +1,11 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
+import QRCode from "react-qr-code";
 import { useI18n } from "@/components/I18nProvider";
 
 const TELEGRAM_URL = "https://t.me/FinanceAndTravelTips";
 const DZEN_URL = "https://dzen.ru/FinanceAndTravelTips";
-
-const QRCode = dynamic(() => import("react-qr-code"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[60px] w-[60px] animate-pulse rounded-md bg-[var(--border)]/40" />
-  ),
-});
 
 type Props = {
   /** Узкая колонка бокового меню: те же ссылка и QR, чуть компактнее */
@@ -28,10 +21,10 @@ export default function TelegramChannelPromo({ variant = "default" }: Props) {
 
   return (
     <div
-      className={`rounded-lg border border-[var(--border)] bg-[var(--input-bg)] shadow-sm ${pad}`}
+      className={`shrink-0 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] shadow-sm ${pad}`}
     >
       <div className="flex items-center gap-2">
-        <div className="rounded-md bg-white p-1">
+        <div className="shrink-0 rounded-md bg-white p-1">
           <QRCode value={TELEGRAM_URL} size={qrSize} level="M" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">

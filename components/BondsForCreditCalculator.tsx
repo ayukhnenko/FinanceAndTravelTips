@@ -276,18 +276,24 @@ export default function BondsForCreditCalculator({
 
             <div className="space-y-2 border-t border-[var(--border)] pt-4 text-sm text-[var(--muted)]">
               <p>
-                {tr("При такой сумме и ставке", "At this amount and")}{" "}
+                {tr("При такой сумме и ставке", "At this amount and rate of")}{" "}
                 <span className="font-medium text-[var(--foreground)]">
                   {parsed.key.toLocaleString("ru-RU", {
                     maximumFractionDigits: 2,
                   })}
-                  {tr("% annual", "% annual")}
+                  {tr("% годовых", "% per year")}
                 </span>{" "}
-                {tr("one semiannual coupon is about", "one semiannual coupon is about")}{" "}
+                {tr(
+                  "один полугодовой купон составляет около",
+                  "one semiannual coupon is about"
+                )}{" "}
                 <span className="font-medium text-[var(--foreground)]">
                   {rub.format(result.semi)}
                 </span>
-                {tr(", while 6 months of loan payments require", ", while 6 months of loan payments require")}{" "}
+                {tr(
+                  ", а на 6 месяцев платежей по кредиту нужно",
+                  ", while 6 months of loan payments require"
+                )}{" "}
                 <span className="font-medium text-[var(--foreground)]">
                   {rub.format(result.sixMonthsLoan)}
                 </span>
@@ -309,7 +315,7 @@ export default function BondsForCreditCalculator({
             <p className="text-[var(--muted)]">
               {tr("Сколько нужно в облигациях при той же годовой доходности (", "Required bond amount at the same annual yield (")}
               {parsed.key.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}
-              {tr("%), to ", "%), to ")}
+              {tr("%), чтобы ", "%), to ")}
               <strong className="font-semibold text-[var(--foreground)]">
                 {tr("полностью оплачивать кредит только за счёт купонов", "fully pay loan only from coupons")}
               </strong>{" "}
@@ -347,7 +353,7 @@ export default function BondsForCreditCalculator({
                 <span className="font-medium text-[var(--foreground)]">
                   {rub.format(result.sixMonthsLoan)}
                 </span>{" "}
-                {tr("for 6 months of payments.", "for 6 months of payments.")}
+                {tr("за 6 месяцев платежей.", "for 6 months of payments.")}
               </p>
               <p className="text-xs leading-relaxed">
                 {tr(
