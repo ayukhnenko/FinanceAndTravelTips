@@ -145,8 +145,8 @@ export default function DiscountingCalculator({
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-[var(--muted)]">
                 {tr(
-                  "Дисконтированная сумма через срок",
-                  "Discounted amount after the selected term"
+                  "Будущая стоимость денег",
+                  "Future value of money"
                 )}
               </span>
               <span className="font-semibold text-[var(--foreground)]">
