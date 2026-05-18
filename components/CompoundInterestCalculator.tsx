@@ -38,6 +38,7 @@ export default function CompoundInterestCalculator() {
   const [rate, setRate] = useState("");
   const [years, setYears] = useState("");
   const [period, setPeriod] = useState<Period>("monthly");
+  const [showResult, setShowResult] = useState(false);
 
   const parsed = useMemo(() => {
     const p = parseFloat(principal.replace(/\s/g, "").replace(",", "."));
@@ -150,7 +151,18 @@ export default function CompoundInterestCalculator() {
               "Enter a positive amount and term, and a non-negative rate."
             )}
           </p>
-        ) : result ? (
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => setShowResult(true)}
+          disabled={!parsed.valid}
+          className="btn-primary w-full"
+        >
+          {tr("Рассчитать", "Calculate")}
+        </button>
+
+        {showResult && result ? (
           <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-5 shadow-inner">
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-[var(--muted)]">{tr("Итоговая сумма", "Final amount")}</span>

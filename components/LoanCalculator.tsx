@@ -100,6 +100,7 @@ export default function LoanCalculator({
     () => initial?.paymentType ?? "annuity"
   );
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
+  const [showResult, setShowResult] = useState(false);
 
   const parsed = useMemo(() => {
     const p = Number(principal.replace(/\s/g, "").replace(/_/g, ""));
@@ -275,6 +276,15 @@ export default function LoanCalculator({
               </p>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowResult(true)}
+            disabled={!parsed.valid}
+            className="btn-primary w-full"
+          >
+            {tr("Рассчитать", "Calculate")}
+          </button>
         </aside>
 
         <section className="space-y-6">
@@ -285,7 +295,7 @@ export default function LoanCalculator({
                 "Check input: amount and term must be greater than zero."
               )}
             </p>
-          ) : (
+          ) : showResult ? (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard
@@ -426,7 +436,7 @@ export default function LoanCalculator({
 
               <ScheduleTable rows={schedule} />
             </>
-          )}
+          ) : null}
         </section>
       </div>
     </div>

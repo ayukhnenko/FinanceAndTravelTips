@@ -5,6 +5,7 @@ export type CalculatorInfoKey =
   | "mortgage_sale"
   | "rent_vs_buy"
   | "compound"
+  | "discounting"
   | "loan";
 
 export type CalculatorInfoContent = {
@@ -145,6 +146,28 @@ export const calculatorInfo: Record<CalculatorInfoKey, CalculatorInfoContent> = 
     audienceEn: [
       "Beginner investors and anyone learning the effect of compounding on a simple example.",
       "Anyone who needs a rough target amount over N years.",
+    ],
+  },
+  discounting: {
+    shortRu:
+      "Показывает, как уменьшается текущая стоимость суммы за срок t лет при ставке дисконтирования r (по умолчанию — ключевая ставка ЦБ).",
+    shortEn:
+      "Calculates how much a sum grows over time using a discount rate (defaults to the Bank of Russia key rate).",
+    fullRu: [
+      "Калькулятор показывает, какому эквиваленту в будущем будет соответствовать текущая сумма при заданной ставке дисконтирования.",
+      "Введите сумму сегодня, срок t и ставку r (по умолчанию подставляется ключевая ставка ЦБ) — на выходе получите эквивалент этой суммы через t лет.",
+    ],
+    fullEn: [
+      "This tool shows the future equivalent of a current amount using a chosen discount rate.",
+      "Enter today’s amount, term t, and rate r (defaults to the Bank of Russia key rate) to get the equivalent value after t years.",
+    ],
+    audienceRu: [
+      "Тем, кто сравнивает финансовые решения во времени и хочет увидеть будущую стоимость текущей суммы.",
+      "Пользователям, которым нужен простой ориентир без сложных моделей и дополнительных допущений.",
+    ],
+    audienceEn: [
+      "Anyone comparing financial decisions across time and wanting the future value of a current amount.",
+      "Users who need a simple benchmark without complex models or extra assumptions.",
     ],
   },
   loan: {

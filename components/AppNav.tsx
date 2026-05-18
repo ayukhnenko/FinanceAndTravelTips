@@ -37,6 +37,7 @@ const navSections = [
     key: "basic",
     links: [
       { href: "/compound", key: "compound" as const },
+      { href: "/discounting", key: "discounting" as const },
       { href: "/loan", key: "loan" as const },
     ],
   },
@@ -146,6 +147,10 @@ export default function AppNav() {
     ),
     rent_vs_buy: tr("Аренда против покупки", "Rent vs Buy"),
     compound: tr("Калькулятор сложных процентов", "Compound Interest Calculator"),
+    discounting: tr(
+      "Дисконтирование — будущая стоимость денег",
+      "Discounting - Future Value of Money"
+    ),
     loan: tr("Кредитный калькулятор", "Loan Calculator"),
   };
 

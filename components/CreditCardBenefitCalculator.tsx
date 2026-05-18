@@ -24,6 +24,7 @@ export default function CreditCardBenefitCalculator({
       ? String(defaultRatePercent).replace(".", ",")
       : "21"
   );
+  const [showResult, setShowResult] = useState(false);
 
   const parsed = useMemo(() => {
     const spending = parseFloat(
@@ -127,7 +128,16 @@ export default function CreditCardBenefitCalculator({
           </p>
         ) : null}
 
-        {result ? (
+        <button
+          type="button"
+          onClick={() => setShowResult(true)}
+          disabled={!parsed.valid}
+          className="btn-primary w-full"
+        >
+          {tr("Рассчитать", "Calculate")}
+        </button>
+
+        {showResult && result ? (
           <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-5 shadow-inner">
             <div className="flex justify-between gap-4 text-sm">
               <span className="text-[var(--muted)]">
