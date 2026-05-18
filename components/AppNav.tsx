@@ -30,6 +30,10 @@ const navSections = [
     key: "real_estate",
     links: [
       { href: "/mortgage-sale", key: "mortgage_sale" as const },
+      {
+        href: "/mortgage-conditions-compare",
+        key: "mortgage_conditions_compare" as const,
+      },
       { href: "/rent-vs-buy", key: "rent_vs_buy" as const },
     ],
   },
@@ -144,6 +148,10 @@ export default function AppNav() {
     mortgage_sale: tr(
       "Выгодно ли продавать квартиру в ипотеке",
       "Is Selling a Mortgaged Apartment Worth It?"
+    ),
+    mortgage_conditions_compare: tr(
+      "Сравнение ипотечных условий",
+      "Mortgage Terms Comparison"
     ),
     rent_vs_buy: tr("Аренда против покупки", "Rent vs Buy"),
     compound: tr("Калькулятор сложных процентов", "Compound Interest Calculator"),

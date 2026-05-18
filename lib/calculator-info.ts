@@ -3,6 +3,7 @@ export type CalculatorInfoKey =
   | "bonds_cover"
   | "card_benefit"
   | "mortgage_sale"
+  | "mortgage_conditions_compare"
   | "rent_vs_buy"
   | "compound"
   | "discounting"
@@ -104,6 +105,28 @@ export const calculatorInfo: Record<CalculatorInfoKey, CalculatorInfoContent> = 
     audienceEn: [
       "Homeowners with a mortgage choosing between selling and investing cash versus keeping the property as a rental.",
       "Investors whose main criterion is maximum return by the horizon, not only lifestyle factors.",
+    ],
+  },
+  mortgage_conditions_compare: {
+    shortRu:
+      "Сравнивает несколько ипотечных условий (включая один льготный период на вариант) и показывает графики выплат.",
+    shortEn:
+      "Compares multiple mortgage terms (including one optional grace period per option) and visualizes payments.",
+    fullRu: [
+      "Калькулятор сравнивает варианты ипотечных условий при одинаковой стоимости недвижимости и сроке: для каждого варианта задаётся базовая ставка и, при необходимости, один льготный период (месяцы + льготная ставка).",
+      "На выходе — помесячная таблица платежей по всем вариантам, итоговые суммы выплат, график накопленных выплат, а также опциональный пересчёт итогов через ставку дисконтирования и текстовый вывод о самом выгодном варианте.",
+    ],
+    fullEn: [
+      "This calculator compares mortgage options for the same property price and term: each option has a base rate and may include one grace period (months + grace rate).",
+      "Output includes a month-by-month payment table for all options, total payments, cumulative-payment charts, optional discount-rate recalculation, and a text verdict on the most cost-efficient option.",
+    ],
+    audienceRu: [
+      "Покупателям недвижимости, которые выбирают между несколькими предложениями банка и льготными программами.",
+      "Тем, кто хочет увидеть не только платёж в первый месяц, но и всю динамику и итоговую стоимость ипотеки.",
+    ],
+    audienceEn: [
+      "Property buyers comparing multiple bank offers and subsidized mortgage programs.",
+      "Anyone who wants to see full payment dynamics and total mortgage cost, not just the first-month payment.",
     ],
   },
   rent_vs_buy: {
