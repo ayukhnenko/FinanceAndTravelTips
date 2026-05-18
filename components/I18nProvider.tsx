@@ -28,6 +28,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved === "ru" || saved === "en") {
       setLang(saved);
+      return;
+    }
+
+    const preferred = (navigator.language || "").toLowerCase();
+    if (preferred.startsWith("en")) {
+      setLang("en");
+    } else {
+      setLang("ru");
     }
   }, []);
 
