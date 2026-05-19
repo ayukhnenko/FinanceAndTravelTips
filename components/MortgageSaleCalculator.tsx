@@ -5,6 +5,9 @@ import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -172,10 +175,22 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
       breakEvenGrowthPercent,
     };
   }, [parsed]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    return buildReportUiLink("/api/mortgage-sale/report", {
+      propertyValue: parsed.value,
+      debt: parsed.debt,
+      monthlyPayment: parsed.payment,
+      monthsLeft: parsed.months,
+      rentPayment: parsed.rent,
+      rentGrowthPercent: parsed.rentGrowth,
+      naosPercent: parsed.naos,
+    });
+  }, [parsed]);
 
   function calculate() {
-    if (!parsed.valid) return;
-    setShowResult(true);
+    if (!reportUiLink) return;
+    openUiReportLink(reportUiLink);
   }
 
   const verdictTone = {
@@ -402,6 +417,13 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
                 "Calculation logic: compare final capital at mortgage horizon. In “sell”, we invest proceeds after debt repayment. In “keep”, we account for apartment value plus accumulated effect of rent-payment difference at the same NAOS rate."
               )}
             </p>
+            <div className="mt-3">
+              <CopyApiUiLinkButton
+                href={reportUiLink}
+                idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+                copiedLabel={tr("Ссылка скопирована", "Link copied")}
+              />
+            </div>
           </div>
         </div>
       ) : null}

@@ -51,6 +51,10 @@ const navSections = [
       { href: "/mcp-docs", key: "mcp_docs" as const },
     ],
   },
+  {
+    key: "admin",
+    links: [{ href: "/admin/settings", key: "admin_settings" as const }],
+  },
 ] as const;
 
 type TooltipState = {
@@ -152,9 +156,13 @@ export default function AppNav() {
     real_estate: tr("Недвижимость", "Real Estate"),
     basic: tr("Базовые вещи", "Core Tools"),
     docs: tr("Техническая документация", "Technical Documentation"),
+    admin: tr("Администрирование", "Administration"),
   };
 
-  const linkLabels: Record<CalculatorInfoKey | "api_docs" | "mcp_docs", string> = {
+  const linkLabels: Record<
+    CalculatorInfoKey | "api_docs" | "mcp_docs" | "admin_settings",
+    string
+  > = {
     early_repay: tr(
       "Выгодно ли гасить кредит досрочно",
       "Is Early Repayment Worth It?"
@@ -184,6 +192,7 @@ export default function AppNav() {
     loan: tr("Кредитный калькулятор", "Loan Calculator"),
     api_docs: tr("Описание API", "API Overview"),
     mcp_docs: tr("MCP сервер", "MCP Server"),
+    admin_settings: tr("Настройки параметров", "Parameter Settings"),
   };
 
   const infoButtonLabel = tr(
@@ -248,7 +257,9 @@ export default function AppNav() {
                     infoKeyToHref[key as CalculatorInfoKey] === href;
                   const active = activeByPath || activeByInfoPage;
                   const hasInfoButton =
-                    key !== "api_docs" && key !== "mcp_docs";
+                    key !== "api_docs" &&
+                    key !== "mcp_docs" &&
+                    key !== "admin_settings";
                   return (
                     <div
                       key={href}

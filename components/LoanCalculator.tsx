@@ -20,6 +20,9 @@ import {
 } from "@/lib/amortization";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 
 export type LoanCalculatorInitial = {
   principal?: string;
@@ -154,6 +157,15 @@ export default function LoanCalculator({
       interestPart: r.interestPart,
     }));
   }, [schedule, useYearlyChart]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    return buildReportUiLink("/api/loan/report", {
+      principal: parsed.principal,
+      annualRatePercent: parsed.annualRatePercent,
+      termYears: parsed.termMonths / 12,
+      paymentType,
+    });
+  }, [parsed, paymentType]);
 
   const firstPayment = schedule[0]?.payment ?? 0;
   const lastPayment = schedule[schedule.length - 1]?.payment ?? 0;
@@ -284,7 +296,10 @@ export default function LoanCalculator({
 
           <button
             type="button"
-            onClick={() => setShowResult(true)}
+            onClick={() => {
+              if (!reportUiLink) return;
+              openUiReportLink(reportUiLink);
+            }}
             disabled={!parsed.valid}
             className="btn-primary w-full"
           >
@@ -440,6 +455,11 @@ export default function LoanCalculator({
               </div>
 
               <ScheduleTable rows={schedule} />
+              <CopyApiUiLinkButton
+                href={reportUiLink}
+                idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+                copiedLabel={tr("Ссылка скопирована", "Link copied")}
+              />
             </>
           ) : null}
         </section>

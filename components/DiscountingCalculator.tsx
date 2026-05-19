@@ -5,6 +5,9 @@ import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -79,6 +82,14 @@ export default function DiscountingCalculator({
       discountLoss: parsed.principal - discounted,
     };
   }, [parsed]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    return buildReportUiLink("/api/discounting/report", {
+      amount: parsed.principal,
+      years: parsed.termYears,
+      discountRatePercent: parsed.discountRate,
+    });
+  }, [parsed]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -146,7 +157,10 @@ export default function DiscountingCalculator({
 
         <button
           type="button"
-          onClick={() => setShowResult(true)}
+          onClick={() => {
+            if (!reportUiLink) return;
+            openUiReportLink(reportUiLink);
+          }}
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
@@ -200,6 +214,11 @@ export default function DiscountingCalculator({
                 )}.`
               )}
             </p>
+            <CopyApiUiLinkButton
+              href={reportUiLink}
+              idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+              copiedLabel={tr("Ссылка скопирована", "Link copied")}
+            />
           </div>
         ) : null}
       </div>

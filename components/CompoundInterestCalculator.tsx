@@ -5,6 +5,9 @@ import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -85,6 +88,15 @@ export default function CompoundInterestCalculator() {
     const interest = amount - parsed.principal;
     return { amount, interest };
   }, [parsed]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    return buildReportUiLink("/api/compound/report", {
+      principal: parsed.principal,
+      annualRatePercent: parsed.rate,
+      years: parsed.years,
+      period,
+    });
+  }, [parsed, period]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -172,7 +184,10 @@ export default function CompoundInterestCalculator() {
 
         <button
           type="button"
-          onClick={() => setShowResult(true)}
+          onClick={() => {
+            if (!reportUiLink) return;
+            openUiReportLink(reportUiLink);
+          }}
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
@@ -199,6 +214,11 @@ export default function CompoundInterestCalculator() {
                 "Formula: S = P · (1 + r/m)^m·t, where m is the number of compounding periods per year."
               )}
             </p>
+            <CopyApiUiLinkButton
+              href={reportUiLink}
+              idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+              copiedLabel={tr("Ссылка скопирована", "Link copied")}
+            />
           </div>
         ) : null}
       </div>

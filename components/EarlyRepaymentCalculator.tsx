@@ -8,6 +8,9 @@ import {
   calculateEarlyRepaymentSnapshot,
   type EarlyRepaymentVerdict,
 } from "@/lib/early-repayment";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
@@ -61,10 +64,18 @@ export default function EarlyRepaymentCalculator({
     if (!parsed.valid) return null;
     return calculateEarlyRepaymentSnapshot(parsed.rate, isMortgage, parsed.naos);
   }, [parsed, isMortgage]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    return buildReportUiLink("/api/early-repayment/report", {
+      rate: parsed.rate,
+      benchmarkRate: parsed.naos,
+      isMortgage,
+    });
+  }, [parsed, isMortgage]);
 
   function calculate() {
-    if (!parsed.valid) return;
-    setShowResult(true);
+    if (!reportUiLink) return;
+    openUiReportLink(reportUiLink);
   }
 
   const toneClass = {
@@ -160,12 +171,6 @@ export default function EarlyRepaymentCalculator({
             className="field-input"
             placeholder={String(defaultNaosPercent)}
           />
-          <span className="mt-1 block text-xs text-[var(--muted)]">
-            {tr(
-              "По умолчанию подставляется ставка из таблицы настроек приложения; если подходящей записи нет, используется значение по умолчанию.",
-              "By default, this field uses the rate from the app settings table; if no matching row exists, fallback value is used."
-            )}
-          </span>
         </label>
 
         {!parsed.valid ? (
@@ -245,6 +250,13 @@ export default function EarlyRepaymentCalculator({
             <p className="mt-2 text-sm leading-relaxed opacity-95">
               {verdictText[snapshot.verdict].body}
             </p>
+            <div className="mt-3">
+              <CopyApiUiLinkButton
+                href={reportUiLink}
+                idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+                copiedLabel={tr("Ссылка скопирована", "Link copied")}
+              />
+            </div>
           </div>
         </div>
       ) : null}

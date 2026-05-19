@@ -19,6 +19,9 @@ import {
   type MortgageConditionInput,
 } from "@/lib/mortgage-conditions-compare";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 
 type MortgageOptionForm = {
   id: string;
@@ -396,6 +399,28 @@ export default function MortgageConditionsCompareCalculator({
       secondDiscounted: byDiscounted[1] ?? null,
     };
   }, [comparison]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    const conditions = parsed.parsedOptions
+      .filter((option) => option.downPaymentEnough)
+      .map((option) => ({
+        id: option.id,
+        label: option.label,
+        annualRatePercent: option.annualRatePercent,
+        minDownPaymentPercent: option.minDownPaymentPercent,
+        gracePeriodMonths: option.graceMonths,
+        graceRatePercent: option.graceRatePercent,
+      }));
+
+    return buildReportUiLink("/api/mortgage-conditions-compare/report", {
+      propertyPrice: parsed.principal,
+      maxDownPayment: parsed.maxDown,
+      annualDepositRatePercent: parsed.depositRatePercent,
+      termMonths: parsed.termMonths,
+      annualDiscountRatePercent: parsed.discountRatePercent,
+      conditions: JSON.stringify(conditions),
+    });
+  }, [parsed]);
 
   const useDiscountedTotals = applyDiscount && parsed.discountRatePercent > 0;
 
@@ -618,7 +643,10 @@ export default function MortgageConditionsCompareCalculator({
 
         <button
           type="button"
-          onClick={() => setShowResult(true)}
+          onClick={() => {
+            if (!reportUiLink) return;
+            openUiReportLink(reportUiLink);
+          }}
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
@@ -927,6 +955,13 @@ export default function MortgageConditionsCompareCalculator({
                       "Totals are shown as nominal payments without discounting."
                     )}
               </p>
+              <div className="mt-3">
+                <CopyApiUiLinkButton
+                  href={reportUiLink}
+                  idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+                  copiedLabel={tr("Ссылка скопирована", "Link copied")}
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -24,6 +24,9 @@ import {
 } from "@/lib/rent-vs-buy";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -217,11 +220,22 @@ export default function RentVsBuyCalculator({
       buyBelowInitial: buyForCompare < initialBenchmark - 1,
     };
   }, [result, parsed, appliedDiscountRate, discountRate, defaultDepositRatePercent]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    return buildReportUiLink("/api/rent-vs-buy/report", {
+      rentCost: parsed.rent,
+      apartmentPrice: parsed.price,
+      mortgageRatePercent: parsed.mortRate,
+      downPayment: parsed.down,
+      depositRatePercent: parsed.depRate,
+      mortgageTermYears: parsed.termYears,
+    });
+  }, [parsed]);
 
   function calculate() {
-    if (!parsed.valid) return;
-    setShowResult(true);
+    if (!reportUiLink) return;
     setAppliedDiscountRate(null);
+    openUiReportLink(reportUiLink);
   }
 
   function applyDiscount() {
@@ -685,6 +699,13 @@ export default function RentVsBuyCalculator({
               </span>
               .
             </p>
+            <div className="mt-3">
+              <CopyApiUiLinkButton
+                href={reportUiLink}
+                idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+                copiedLabel={tr("Ссылка скопирована", "Link copied")}
+              />
+            </div>
           </div>
         </div>
       ) : null}

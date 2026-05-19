@@ -5,6 +5,9 @@ import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -66,6 +69,14 @@ export default function CreditCardBenefitCalculator({
       parsed.spending * (parsed.rate / 100) * (parsed.effectiveDays / 365);
     const yearlyBenefit = monthlyBenefit * 12;
     return { permanentAmount, monthlyBenefit, yearlyBenefit };
+  }, [parsed]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    return buildReportUiLink("/api/credit-card-benefit/report", {
+      monthlySpending: parsed.spending,
+      graceDays: parsed.grace,
+      savingsRatePercent: parsed.rate,
+    });
   }, [parsed]);
 
   return (
@@ -143,7 +154,10 @@ export default function CreditCardBenefitCalculator({
 
         <button
           type="button"
-          onClick={() => setShowResult(true)}
+          onClick={() => {
+            if (!reportUiLink) return;
+            openUiReportLink(reportUiLink);
+          }}
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
@@ -177,6 +191,11 @@ export default function CreditCardBenefitCalculator({
                 {rub.format(result.yearlyBenefit)}
               </span>
             </div>
+            <CopyApiUiLinkButton
+              href={reportUiLink}
+              idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+              copiedLabel={tr("Ссылка скопирована", "Link copied")}
+            />
           </div>
         ) : null}
       </div>

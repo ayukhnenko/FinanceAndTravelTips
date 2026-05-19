@@ -8,6 +8,9 @@ import {
   presentValueOfMonthlyPayments,
   semiannualCouponFromNominal,
 } from "@/lib/bonds-for-credit";
+import { buildReportUiLink } from "@/lib/report-ui-link";
+import { openUiReportLink } from "@/lib/open-ui-report";
+import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
@@ -127,6 +130,15 @@ export default function BondsForCreditCalculator({
       debtVsPv,
     };
   }, [parsed, tr]);
+  const reportUiLink = useMemo(() => {
+    if (!parsed.valid) return null;
+    return buildReportUiLink("/api/bonds-cover/report", {
+      monthlyPayment: parsed.monthly,
+      monthsLeft: parsed.months,
+      annualYieldPercent: parsed.key,
+      remainingDebt: parsed.debt,
+    });
+  }, [parsed]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -225,7 +237,10 @@ export default function BondsForCreditCalculator({
 
         <button
           type="button"
-          onClick={() => setShowResult(true)}
+          onClick={() => {
+            if (!reportUiLink) return;
+            openUiReportLink(reportUiLink);
+          }}
           disabled={!parsed.valid}
           className="btn-primary w-full"
         >
@@ -375,6 +390,11 @@ export default function BondsForCreditCalculator({
                 )}
               </p>
             </div>
+            <CopyApiUiLinkButton
+              href={reportUiLink}
+              idleLabel={tr("Копировать ссылку на расчет", "Copy calculation link")}
+              copiedLabel={tr("Ссылка скопирована", "Link copied")}
+            />
           </div>
         </div>
       ) : null}
