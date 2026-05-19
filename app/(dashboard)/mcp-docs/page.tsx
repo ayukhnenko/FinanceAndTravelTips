@@ -96,35 +96,6 @@ export default function McpDocsPage() {
         </ul>
       </section>
 
-      <section className="card-panel mt-4 space-y-3">
-        <h2 className="text-lg font-semibold text-[var(--foreground)]">
-          {tr("Где реализовано", "Implementation Paths")}
-        </h2>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--foreground)]">
-          <li>
-            <code>app/api/mcp/route.ts</code> -{" "}
-            {tr(
-              "HTTP endpoint для деплоя в интернет",
-              "HTTP endpoint for internet deployment"
-            )}
-          </li>
-          <li>
-            <code>scripts/mcp-api-docs.mjs</code> -{" "}
-            {tr(
-              "локальный stdio MCP сервер для Cursor",
-              "local stdio MCP server for Cursor"
-            )}
-          </li>
-          <li>
-            <code>.cursor/mcp.json</code> -{" "}
-            {tr(
-              "конфигурация локального MCP подключения в Cursor",
-              "local MCP connection config for Cursor"
-            )}
-          </li>
-        </ul>
-      </section>
-
       <div className="mt-6">
         <Link href="/api-docs" className="link-accent text-sm">
           {tr("Перейти к описанию REST API", "Go to REST API docs")}
