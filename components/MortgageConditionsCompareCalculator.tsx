@@ -230,7 +230,8 @@ export default function MortgageConditionsCompareCalculator({
       depositRatePercent >= 0 &&
       Number.isFinite(discountRatePercent) &&
       discountRatePercent >= 0 &&
-      parsedOptions.every((option) => option.valid);
+      parsedOptions.every((option) => option.valid) &&
+      parsedOptions.every((option) => option.downPaymentEnough);
 
     return {
       principal,
@@ -635,8 +636,8 @@ export default function MortgageConditionsCompareCalculator({
         {!parsed.valid ? (
           <p className="text-sm text-amber-800">
             {tr(
-              "Проверьте ввод: стоимость > 0, максимальный взнос в диапазоне [0; стоимость], ставка вклада неотрицательная; в каждом варианте нужна ставка и минимальный первоначальный взнос в процентах (0-100), а льготный период (если включен) — положительный, меньше срока и со своей ставкой.",
-              "Check input: property value > 0, max down payment in [0; property value], deposit rate non-negative; each option needs a rate and minimum down payment in percent (0-100), and grace period (if enabled) must be positive, shorter than term, and have its own rate."
+              "Проверьте ввод: стоимость > 0, максимальный взнос в диапазоне [0; стоимость], ставка вклада неотрицательная; в каждом варианте нужна ставка и минимальный первоначальный взнос в процентах (0-100), а льготный период (если включен) — положительный, меньше срока и со своей ставкой. Если по любому варианту максимального первоначального взноса недостаточно, расчет не запускается.",
+              "Check input: property value > 0, max down payment in [0; property value], deposit rate non-negative; each option needs a rate and minimum down payment in percent (0-100), and grace period (if enabled) must be positive, shorter than term, and have its own rate. If max down payment is insufficient for any option, calculation is blocked."
             )}
           </p>
         ) : null}
