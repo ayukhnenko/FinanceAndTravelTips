@@ -1,6 +1,21 @@
 import { Redis } from "@upstash/redis";
 
 const VISITS_KEY = "financeandtraveltips:visits:total";
+const REDIS_OP_TIMEOUT_MS = 900;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("redis_timeout")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function trimEnv(v: string | undefined): string | undefined {
   if (v == null) return undefined;
@@ -46,7 +61,7 @@ export async function incrementTotalVisits(): Promise<number | null> {
   const redis = createClient();
   if (!redis) return null;
   try {
-    const n = await redis.incr(VISITS_KEY);
+    const n = await withTimeout(redis.incr(VISITS_KEY), REDIS_OP_TIMEOUT_MS);
     return typeof n === "number" ? n : null;
   } catch (err) {
     console.error("[visits] incrementTotalVisits:", err);
@@ -58,7 +73,7 @@ export async function getTotalVisits(): Promise<number | null> {
   const redis = createClient();
   if (!redis) return null;
   try {
-    const v = await redis.get(VISITS_KEY);
+    const v = await withTimeout(redis.get(VISITS_KEY), REDIS_OP_TIMEOUT_MS);
     if (v == null) return 0;
     if (typeof v === "number") return v;
     const parsed = parseInt(String(v), 10);
