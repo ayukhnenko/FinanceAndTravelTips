@@ -41,6 +41,7 @@ const navSections = [
       { href: "/compound", key: "compound" as const },
       { href: "/discounting", key: "discounting" as const },
       { href: "/loan", key: "loan" as const },
+      { href: "/key-rate", key: "key_rate" as const },
     ],
   },
   {
@@ -159,7 +160,7 @@ export default function AppNav() {
   };
 
   const linkLabels: Record<
-    CalculatorInfoKey | "api_docs" | "mcp_docs" | "admin_settings",
+    CalculatorInfoKey | "api_docs" | "mcp_docs" | "admin_settings" | "key_rate",
     string
   > = {
     early_repay: tr(
@@ -189,6 +190,7 @@ export default function AppNav() {
       "Discounting - Future Value of Money"
     ),
     loan: tr("Кредитный калькулятор", "Loan Calculator"),
+    key_rate: tr("Ключевая ставка ЦБ", "CB Key Rate"),
     api_docs: tr("Описание API", "API Overview"),
     mcp_docs: tr("MCP сервер", "MCP Server"),
     admin_settings: tr("Настройки параметров", "Parameter Settings"),
@@ -258,7 +260,8 @@ export default function AppNav() {
                   const hasInfoButton =
                     key !== "api_docs" &&
                     key !== "mcp_docs" &&
-                    key !== "admin_settings";
+                    key !== "admin_settings" &&
+                    key !== "key_rate";
                   return (
                     <div
                       key={href}

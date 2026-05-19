@@ -7,10 +7,22 @@ type ApiDocItem = {
   title: string;
   endpoint: string;
   sample: string;
+  /** Страница UI вместо ?format=ui; null — кнопку не показывать */
+  uiHref?: string | null;
   inputParams: Array<{ name: string; description: string }>;
   outputParams: Array<{ name: string; description: string }>;
   jsonExample: string;
 };
+
+function resolveJsonHref(sample: string): string {
+  return sample.replace(/\s*\(POST\)\s*$/i, "").trim();
+}
+
+function resolveUiHref(item: ApiDocItem): string | null {
+  if (item.uiHref === null) return null;
+  if (item.uiHref) return item.uiHref;
+  return toUiSampleUrl(resolveJsonHref(item.sample));
+}
 
 function toUiSampleUrl(sample: string): string {
   if (sample.includes("format=json")) {
@@ -21,6 +33,21 @@ function toUiSampleUrl(sample: string): string {
 }
 
 const items: ApiDocItem[] = [
+  {
+    title: "Текущая ключевая ставка ЦБ",
+    endpoint: "/api/key-rate",
+    sample: "/api/key-rate",
+    uiHref: "/key-rate",
+    inputParams: [],
+    outputParams: [
+      { name: "rate", description: "Текущая ставка, % годовых" },
+      { name: "date", description: "Актуально на (YYYY-MM-DD)" },
+    ],
+    jsonExample: `{
+  "rate": 14.5,
+  "date": "2026-05-19"
+}`,
+  },
   {
     title: "Выгодно ли гасить кредит досрочно",
     endpoint: "/api/early-repayment/report",
@@ -299,8 +326,12 @@ export default function ApiDocsPage() {
         Описание API
       </h1>
       <div className="mt-8 space-y-4">
-        {items.map((item) => (
-          <section key={item.endpoint} className="card-panel space-y-2">
+        {items.map((item) => {
+          const itemKey = `${item.endpoint}-${item.title}`;
+          const jsonHref = resolveJsonHref(item.sample);
+          const uiHref = resolveUiHref(item);
+          return (
+          <section key={itemKey} className="card-panel space-y-2">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">
               {item.title}
             </h2>
@@ -312,21 +343,23 @@ export default function ApiDocsPage() {
             </code>
             <div className="flex flex-wrap gap-2 pt-1">
               <a
-                href={item.sample}
+                href={jsonHref}
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 hover:text-[var(--accent)]"
               >
                 Открыть json
               </a>
-              <a
-                href={toUiSampleUrl(item.sample)}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 hover:text-[var(--accent)]"
-              >
-                Открыть ui
-              </a>
+              {uiHref ? (
+                <a
+                  href={uiHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 hover:text-[var(--accent)]"
+                >
+                  Открыть ui
+                </a>
+              ) : null}
             </div>
             <h3 className="pt-2 text-sm font-semibold text-[var(--foreground)]">
               Входные параметры
@@ -352,20 +385,21 @@ export default function ApiDocsPage() {
               type="button"
               onClick={() =>
                 setOpenExample((current) =>
-                  current === item.endpoint ? null : item.endpoint
+                  current === itemKey ? null : itemKey
                 )
               }
               className="link-accent text-left text-sm"
             >
               Раскрыть
             </button>
-            {openExample === item.endpoint ? (
+            {openExample === itemKey ? (
               <pre className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[var(--foreground)]">
                 {item.jsonExample}
               </pre>
             ) : null}
           </section>
-        ))}
+          );
+        })}
       </div>
 
       <div className="mt-6">

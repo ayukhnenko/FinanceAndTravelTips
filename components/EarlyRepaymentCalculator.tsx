@@ -13,6 +13,7 @@ import { openUiReportLink } from "@/lib/open-ui-report";
 import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
+import { useSyncDefaultRate } from "@/lib/use-sync-default-rate";
 
 function pct(n: number): string {
   if (!Number.isFinite(n)) return "—";
@@ -40,6 +41,7 @@ export default function EarlyRepaymentCalculator({
         : "21"))
   );
   const [showResult, setShowResult] = useState(false);
+  useSyncDefaultRate(searchParams, "benchmarkRate", defaultNaosPercent, setNaos);
   useEffect(() => {
     if (searchParams.get("autocalc") === "1") {
       setShowResult(true);

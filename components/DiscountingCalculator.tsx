@@ -8,6 +8,7 @@ import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton"
 import { buildReportUiLink } from "@/lib/report-ui-link";
 import { openUiReportLink } from "@/lib/open-ui-report";
 import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
+import { useSyncDefaultRate } from "@/lib/use-sync-default-rate";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -45,6 +46,12 @@ export default function DiscountingCalculator({
         : "")
   );
   const [showResult, setShowResult] = useState(false);
+  useSyncDefaultRate(
+    searchParams,
+    "discountRatePercent",
+    defaultDiscountRatePercent,
+    setRate
+  );
   useEffect(() => {
     if (searchParams.get("autocalc") === "1") {
       setShowResult(true);

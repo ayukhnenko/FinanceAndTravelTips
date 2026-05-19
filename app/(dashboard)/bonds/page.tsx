@@ -2,7 +2,7 @@ import BondsForCreditCalculator from "@/components/BondsForCreditCalculator";
 import { getDefaultKeyRatePercent } from "@/lib/cbr-key-rate";
 import { Suspense } from "react";
 
-export const revalidate = 43200;
+export const dynamic = "force-dynamic";
 
 export default async function BondsForCreditPage() {
   const defaultKey = await getDefaultKeyRatePercent();

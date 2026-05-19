@@ -8,6 +8,7 @@ import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton"
 import { buildReportUiLink } from "@/lib/report-ui-link";
 import { openUiReportLink } from "@/lib/open-ui-report";
 import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
+import { useSyncDefaultRate } from "@/lib/use-sync-default-rate";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -33,6 +34,7 @@ export default function CreditCardBenefitCalculator({
       : "21")
   );
   const [showResult, setShowResult] = useState(false);
+  useSyncDefaultRate(searchParams, "savingsRatePercent", defaultRatePercent, setSavingsRate);
   useEffect(() => {
     if (searchParams.get("autocalc") === "1") {
       setShowResult(true);

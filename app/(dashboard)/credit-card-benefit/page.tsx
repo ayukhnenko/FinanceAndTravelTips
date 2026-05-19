@@ -2,7 +2,7 @@ import CreditCardBenefitCalculator from "@/components/CreditCardBenefitCalculato
 import { getDefaultKeyRatePercent } from "@/lib/cbr-key-rate";
 import { Suspense } from "react";
 
-export const revalidate = 43200;
+export const dynamic = "force-dynamic";
 
 export default async function CreditCardBenefitPage() {
   const defaultRate = await getDefaultKeyRatePercent();
