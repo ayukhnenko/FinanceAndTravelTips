@@ -35,12 +35,17 @@ type PageProps = {
 export default function LoanCalculatorPage({ searchParams }: PageProps) {
   const initial = {
     principal: one(searchParams.sum) ?? one(searchParams.principal),
-    annualRate: one(searchParams.rate) ?? one(searchParams.stavka),
+    annualRate:
+      one(searchParams.annualRatePercent) ??
+      one(searchParams.rate) ??
+      one(searchParams.stavka),
     termYears:
       one(searchParams.years) ??
       one(searchParams.termYears) ??
       one(searchParams.srok),
-    paymentType: parsePaymentType(one(searchParams.type)),
+    paymentType: parsePaymentType(
+      one(searchParams.paymentType) ?? one(searchParams.type)
+    ),
     autoCalc: parseAutoCalc(one(searchParams.autocalc)),
   };
 

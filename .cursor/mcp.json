@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "loan-api-docs": {
+      "command": "npm",
+      "args": ["run", "mcp:api-docs"]
+    }
+  }
+}

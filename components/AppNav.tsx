@@ -46,7 +46,10 @@ const navSections = [
   },
   {
     key: "docs",
-    links: [{ href: "/api-docs", key: "api_docs" as const }],
+    links: [
+      { href: "/api-docs", key: "api_docs" as const },
+      { href: "/mcp-docs", key: "mcp_docs" as const },
+    ],
   },
 ] as const;
 
@@ -151,7 +154,7 @@ export default function AppNav() {
     docs: tr("Техническая документация", "Technical Documentation"),
   };
 
-  const linkLabels: Record<CalculatorInfoKey | "api_docs", string> = {
+  const linkLabels: Record<CalculatorInfoKey | "api_docs" | "mcp_docs", string> = {
     early_repay: tr(
       "Выгодно ли гасить кредит досрочно",
       "Is Early Repayment Worth It?"
@@ -180,6 +183,7 @@ export default function AppNav() {
     ),
     loan: tr("Кредитный калькулятор", "Loan Calculator"),
     api_docs: tr("Описание API", "API Overview"),
+    mcp_docs: tr("MCP сервер", "MCP Server"),
   };
 
   const infoButtonLabel = tr(
@@ -243,7 +247,8 @@ export default function AppNav() {
                     pathname === `/calculator-info/${key}` &&
                     infoKeyToHref[key as CalculatorInfoKey] === href;
                   const active = activeByPath || activeByInfoPage;
-                  const hasInfoButton = key !== "api_docs";
+                  const hasInfoButton =
+                    key !== "api_docs" && key !== "mcp_docs";
                   return (
                     <div
                       key={href}
