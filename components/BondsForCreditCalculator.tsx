@@ -11,6 +11,7 @@ import {
 import { buildReportUiLink } from "@/lib/report-ui-link";
 import { openUiReportLink } from "@/lib/open-ui-report";
 import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
+import { useSyncDefaultRate } from "@/lib/use-sync-default-rate";
 import { useI18n } from "@/components/I18nProvider";
 import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
@@ -37,6 +38,7 @@ export default function BondsForCreditCalculator({
     String(defaultKeyRatePercent).replace(".", ",")
   );
   const [showResult, setShowResult] = useState(false);
+  useSyncDefaultRate(searchParams, "annualYieldPercent", defaultKeyRatePercent, setKeyRate);
   useEffect(() => {
     if (searchParams.get("autocalc") === "1") {
       setShowResult(true);

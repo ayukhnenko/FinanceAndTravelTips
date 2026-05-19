@@ -1,3 +1,4 @@
+import { todayIsoDateMoscow } from "@/lib/date-utils";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export type SettingsRateRow = {
@@ -70,21 +71,29 @@ export function pickNearestCurrentOrPastRate(
   rows: SettingsRateRow[],
   parameter: string
 ): number | null {
-  const now = Date.now();
-  let bestRate: number | null = null;
-  let bestDateMs = -Infinity;
+  const row = pickNearestCurrentOrPastRateRow(rows, parameter);
+  return row?.rate ?? null;
+}
+
+export function pickNearestCurrentOrPastRateRow(
+  rows: SettingsRateRow[],
+  parameter: string
+): SettingsRateRow | null {
+  const today = todayIsoDateMoscow();
+  let bestRow: SettingsRateRow | null = null;
+  let bestDate = "";
 
   for (const row of rows) {
     if (row.parameter !== parameter) continue;
-    const dateMs = toDateMs(row.date);
-    if (dateMs == null || dateMs > now) continue;
-    if (dateMs > bestDateMs) {
-      bestDateMs = dateMs;
-      bestRate = row.rate;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) continue;
+    if (row.date > today) continue;
+    if (!bestRow || row.date > bestDate) {
+      bestDate = row.date;
+      bestRow = row;
     }
   }
 
-  return bestRate;
+  return bestRow;
 }
 
 export async function readSettingsRows(): Promise<SettingsRateRow[]> {
@@ -152,6 +161,35 @@ export async function writeSettingsRows(rows: SettingsRateRow[]): Promise<boolea
   } catch (err) {
     console.error("[settings] writeSettingsRows:", err);
     return false;
+  }
+}
+
+export async function insertSettingsRateIfMissing(
+  row: SettingsRateRow
+): Promise<"inserted" | "exists" | "error"> {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return "error";
+  const normalized = normalizeSettingsRows([row])[0];
+  if (!normalized) return "error";
+  try {
+    const inserted = await withTimeout(
+      supabase
+        .from("app_settings_rates")
+        .insert({
+          parameter: normalized.parameter,
+          effective_date: normalized.date,
+          rate: normalized.rate,
+        })
+        .then((r) => r),
+      SETTINGS_TIMEOUT_MS
+    );
+    if (!inserted.error) return "inserted";
+    if (inserted.error.code === "23505") return "exists";
+    console.error("[settings] insertSettingsRateIfMissing:", inserted.error);
+    return "error";
+  } catch (err) {
+    console.error("[settings] insertSettingsRateIfMissing:", err);
+    return "error";
   }
 }
 

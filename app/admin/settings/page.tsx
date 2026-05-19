@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { todayIsoDateMoscow } from "@/lib/date-utils";
 
 type Row = {
   parameter: string;
@@ -14,135 +15,124 @@ type VisitRow = {
   count: number;
 };
 
-function parseRateInput(raw: string): number | null {
-  const text = raw.trim().replace(",", ".");
-  if (!/^\d+(\.\d+)?$/.test(text)) return null;
-  const n = Number(text);
-  if (!Number.isFinite(n) || n <= 0 || n >= 200) return null;
-  return n;
-}
-
 function emptyRow(): Row {
   return { parameter: "key_rate", date: "", rate: "" };
+}
+
+function todayIsoDate(): string {
+  return todayIsoDateMoscow();
 }
 
 export default function AdminSettingsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [visits, setVisits] = useState<VisitRow[]>([]);
+  const [syncingCbr, setSyncingCbr] = useState(false);
+  const [cbrSyncMessage, setCbrSyncMessage] = useState<string | null>(null);
+
+  const reloadAdminData = useCallback(async (): Promise<boolean> => {
+    try {
+      const resp = await fetch("/api/admin/settings", { cache: "no-store" });
+      if (resp.status === 403) {
+        router.push("/admin/login?from=/admin/settings");
+        return false;
+      }
+      const data = (await resp.json()) as {
+        rows?: Array<{ parameter: string; date: string; rate: number }>;
+        visits?: Array<{ date: string; count: number }>;
+      };
+      const nextRows =
+        data.rows?.map((r) => ({
+          parameter: r.parameter,
+          date: r.date,
+          rate: String(r.rate),
+        })) ?? [];
+      setRows(nextRows.length ? nextRows : [emptyRow()]);
+      const nextVisits = (data.visits ?? [])
+        .filter(
+          (v) =>
+            typeof v.date === "string" &&
+            /^\d{4}-\d{2}-\d{2}$/.test(v.date) &&
+            Number.isFinite(Number(v.count))
+        )
+        .map((v) => ({ date: v.date, count: Number(v.count) }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      setVisits(nextVisits);
+      return true;
+    } catch {
+      setError("Не удалось загрузить настройки");
+      return false;
+    }
+  }, [router]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      try {
-        const resp = await fetch("/api/admin/settings", { cache: "no-store" });
-        if (resp.status === 403) {
-          router.push("/admin/login?from=/admin/settings");
-          return;
-        }
-        const data = (await resp.json()) as {
-          rows?: Array<{ parameter: string; date: string; rate: number }>;
-          visits?: Array<{ date: string; count: number }>;
-        };
-        if (!mounted) return;
-        const nextRows =
-          data.rows?.map((r) => ({
-            parameter: r.parameter,
-            date: r.date,
-            rate: String(r.rate),
-          })) ?? [];
-        setRows(nextRows.length ? nextRows : [emptyRow()]);
-        const nextVisits = (data.visits ?? [])
-          .filter(
-            (v) =>
-              typeof v.date === "string" &&
-              /^\d{4}-\d{2}-\d{2}$/.test(v.date) &&
-              Number.isFinite(Number(v.count))
-          )
-          .map((v) => ({ date: v.date, count: Number(v.count) }))
-          .sort((a, b) => a.date.localeCompare(b.date));
-        setVisits(nextVisits);
-      } catch {
-        if (mounted) setError("Не удалось загрузить настройки");
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      const ok = await reloadAdminData();
+      if (mounted) setLoading(false);
+      if (!ok && mounted) setLoading(false);
     })();
     return () => {
       mounted = false;
     };
-  }, [router]);
-
-  const hasInvalidRows = useMemo(
-    () =>
-      rows.some((r) => {
-        if (!r.parameter.trim()) return true;
-        if (!r.date.trim()) return true;
-        return parseRateInput(r.rate) == null;
-      }),
-    [rows]
-  );
+  }, [reloadAdminData]);
 
   const totalVisits = useMemo(
     () => visits.reduce((sum, row) => sum + row.count, 0),
     [visits]
   );
 
-  function updateRow(index: number, patch: Partial<Row>) {
-    setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, ...patch } : row))
-    );
-  }
-
-  function addRow() {
-    setRows((prev) => [...prev, emptyRow()]);
-  }
-
-  function removeRow(index: number) {
-    setRows((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      return next.length ? next : [emptyRow()];
-    });
-  }
-
-  async function save() {
-    setMessage(null);
-    setError(null);
-    setSaving(true);
-    try {
-      const payload = {
-        rows: rows.map((r) => ({
-          parameter: r.parameter.trim(),
-          date: r.date.trim(),
-          rate: parseRateInput(r.rate) ?? 0,
-        })),
-      };
-      const resp = await fetch("/api/admin/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) {
-        const data = (await resp.json().catch(() => ({}))) as { error?: string };
-        setError(data.error ?? "Ошибка сохранения");
-        return;
-      }
-      setMessage("Настройки сохранены");
-    } catch {
-      setError("Ошибка сохранения");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const displayRows = useMemo(() => {
+    const keyRateRows = rows
+      .filter((row) => row.parameter.trim() === "key_rate")
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 3);
+    const otherRows = rows.filter((row) => row.parameter.trim() !== "key_rate");
+    return [...keyRateRows, ...otherRows];
+  }, [rows]);
 
   async function logoutAdmin() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.push("/");
     router.refresh();
+  }
+
+  async function syncCbrRateToDb() {
+    setCbrSyncMessage(null);
+    setSyncingCbr(true);
+    try {
+      const resp = await fetch("/api/key-rate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ saveToDb: true }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as {
+        ok?: boolean;
+        inserted?: boolean;
+        rate?: number;
+        date?: string;
+        error?: string;
+      };
+      if (!resp.ok || !data.ok) {
+        setCbrSyncMessage(data.error ?? "Не удалось запросить ставку ЦБ");
+        return;
+      }
+      const rateText =
+        typeof data.rate === "number" ? `${data.rate.toLocaleString("ru-RU")}%` : "—";
+      const dateText = typeof data.date === "string" ? data.date : "—";
+      setCbrSyncMessage(
+        data.inserted
+          ? `Ставка ЦБ сохранена: ${rateText}, актуально на ${dateText}.`
+          : `Ставка ЦБ получена: ${rateText}, актуально на ${dateText}. На эту дату запись уже есть.`
+      );
+      await reloadAdminData();
+    } catch {
+      setCbrSyncMessage("Не удалось запросить ставку ЦБ");
+    } finally {
+      setSyncingCbr(false);
+    }
   }
 
   if (loading) {
@@ -172,81 +162,52 @@ export default function AdminSettingsPage() {
       </div>
 
       <div className="card-panel overflow-x-auto">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={syncCbrRateToDb}
+            disabled={syncingCbr}
+            className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 disabled:opacity-60"
+          >
+            {syncingCbr ? "Запрос ставки ЦБ..." : "Запросить ставку ЦБ (сохранить в БД)"}
+          </button>
+          {cbrSyncMessage ? (
+            <p className="text-sm text-[var(--muted)]">{cbrSyncMessage}</p>
+          ) : null}
+        </div>
+
         <table className="w-full min-w-[640px] border-collapse">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
               <th className="px-2 py-2">Параметр</th>
-              <th className="px-2 py-2">Дата (YYYY-MM-DD)</th>
+              <th className="px-2 py-2">Актуально на</th>
               <th className="px-2 py-2">Ставка, %</th>
-              <th className="px-2 py-2" />
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={`${index}-${row.parameter}-${row.date}`} className="border-b border-[var(--border)]/70">
-                <td className="px-2 py-2">
-                  <input
-                    className="field-input"
-                    value={row.parameter}
-                    onChange={(e) => updateRow(index, { parameter: e.target.value })}
-                  />
-                </td>
-                <td className="px-2 py-2">
-                  <input
-                    className="field-input"
-                    type="date"
-                    value={row.date}
-                    onChange={(e) => updateRow(index, { date: e.target.value })}
-                  />
-                </td>
-                <td className="px-2 py-2">
-                  <input
-                    className="field-input"
-                    inputMode="decimal"
-                    placeholder="Например: 20.5 или 20,5"
-                    value={row.rate}
-                    onChange={(e) => updateRow(index, { rate: e.target.value })}
-                  />
-                </td>
-                <td className="px-2 py-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => removeRow(index)}
-                    className="rounded-md border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted)] hover:border-rose-300 hover:text-rose-700"
-                  >
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {displayRows.map((row, index) => {
+              const isKeyRate = row.parameter.trim() === "key_rate";
+              const isOldKeyRate = isKeyRate && row.date < todayIsoDate();
+              return (
+                <tr
+                  key={`${index}-${row.parameter}-${row.date}`}
+                  className={`border-b border-[var(--border)]/70 ${
+                    isOldKeyRate ? "text-[var(--muted)]" : ""
+                  }`}
+                >
+                  <td className="px-2 py-2">{row.parameter}</td>
+                  <td className="px-2 py-2">{row.date}</td>
+                  <td className="px-2 py-2">{row.rate}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={addRow}
-            className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40"
-          >
-            Добавить строку
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving || hasInvalidRows}
-            className="btn-primary disabled:opacity-60"
-          >
-            {saving ? "Сохранение..." : "Сохранить"}
-          </button>
-        </div>
-
-        {hasInvalidRows ? (
-          <p className="mt-3 text-sm text-amber-700">
-            Проверьте строки: параметр обязателен, дата обязательна, ставка должна быть числом (0; 200).
-          </p>
-        ) : null}
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          Редактирование записей отключено. Показаны 3 последние по дате записи key_rate;
+          исторические отображаются серым.
+        </p>
         {error ? <p className="mt-3 text-sm text-rose-700">{error}</p> : null}
-        {message ? <p className="mt-3 text-sm text-emerald-700">{message}</p> : null}
       </div>
 
       <div className="card-panel mt-6 overflow-x-auto">

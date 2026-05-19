@@ -21,6 +21,7 @@ import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton"
 import { buildReportUiLink } from "@/lib/report-ui-link";
 import { openUiReportLink } from "@/lib/open-ui-report";
 import CopyApiUiLinkButton from "@/components/CopyApiUiLinkButton";
+import { useSyncDefaultRate } from "@/lib/use-sync-default-rate";
 
 type MortgageOptionForm = {
   id: string;
@@ -162,6 +163,12 @@ export default function MortgageConditionsCompareCalculator({
   const [showResult, setShowResult] = useState(false);
   const [options, setOptions] = useState<MortgageOptionForm[]>(
     () => initialOptions ?? [makeOption(0), makeOption(1)]
+  );
+  useSyncDefaultRate(
+    searchParams,
+    "annualDepositRatePercent",
+    defaultDepositRatePercent,
+    setDepositRate
   );
   useEffect(() => {
     if (searchParams.get("autocalc") === "1") {
