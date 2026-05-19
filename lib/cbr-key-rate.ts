@@ -1,67 +1,128 @@
-/**
- * Значение ключевой ставки ЦБ РФ для подстановки в поле НАОС по умолчанию.
- * Сайт cbr.ru часто отдаёт разметку без данных в SSR — надёжнее задать через
- * DEFAULT_KEY_RATE_PERCENT или обновлять константу при необходимости.
- */
-const FALLBACK_KEY_RATE_PERCENT = 21;
-const CBR_FETCH_TIMEOUT_MS = 1200;
+import { Redis } from "@upstash/redis";
+import { getRedisRestConfig } from "@/lib/visits-store";
 
-function createTimeoutSignal(timeoutMs: number): AbortSignal {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  controller.signal.addEventListener(
-    "abort",
-    () => {
-      clearTimeout(timer);
-    },
-    { once: true }
-  );
-  return controller.signal;
+type SettingsRateRow = {
+  parameter: string;
+  date: string;
+  rate: number;
+};
+
+const FALLBACK_KEY_RATE_PERCENT = 21;
+const SETTINGS_TABLE_KEY = process.env.SETTINGS_TABLE_KEY ?? "financeandtraveltips:settings:table";
+const SETTINGS_TIMEOUT_MS = 900;
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let cachedRate: number | null = null;
+let cachedAtMs = 0;
+let inFlight: Promise<number> | null = null;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("settings_timeout")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function createSettingsClient(): Redis | null {
+  const cfg = getRedisRestConfig();
+  if (!cfg) return null;
+  return new Redis({ url: cfg.url, token: cfg.token });
+}
+
+function toValidRate(v: unknown): number | null {
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+  if (!Number.isFinite(n) || n <= 0 || n >= 200) return null;
+  return n;
+}
+
+function toDateMs(date: string): number | null {
+  const ms = new Date(date).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return ms;
+}
+
+function parseRows(raw: unknown): SettingsRateRow[] {
+  if (raw == null) return [];
+  const payload = typeof raw === "string" ? (() => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  })() : raw;
+  if (!Array.isArray(payload)) return [];
+
+  return payload
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as Record<string, unknown>;
+      const parameter = String(row.parameter ?? "").trim();
+      const date = String(row.date ?? "").trim();
+      const rate = toValidRate(row.rate);
+      if (!parameter || !date || rate == null) return null;
+      if (toDateMs(date) == null) return null;
+      return { parameter, date, rate };
+    })
+    .filter((row): row is SettingsRateRow => row !== null);
+}
+
+function pickNearestCurrentOrPastRate(rows: SettingsRateRow[], parameter: string): number | null {
+  const now = Date.now();
+  let bestRate: number | null = null;
+  let bestDateMs = -Infinity;
+
+  for (const row of rows) {
+    if (row.parameter !== parameter) continue;
+    const dateMs = toDateMs(row.date);
+    if (dateMs == null || dateMs > now) continue;
+    if (dateMs > bestDateMs) {
+      bestDateMs = dateMs;
+      bestRate = row.rate;
+    }
+  }
+
+  return bestRate;
 }
 
 export async function getDefaultKeyRatePercent(): Promise<number> {
-  const fromEnv = process.env.DEFAULT_KEY_RATE_PERCENT;
-  if (fromEnv) {
-    const n = parseFloat(fromEnv.replace(",", "."));
-    if (Number.isFinite(n) && n > 0) {
-      return n;
-    }
+  const now = Date.now();
+  if (cachedRate != null && now - cachedAtMs < SETTINGS_CACHE_TTL_MS) {
+    return cachedRate;
   }
+  if (inFlight) return inFlight;
 
-  // In production, avoid blocking page render on external cbr.ru availability.
-  // Use configured value (if present) or fallback constant.
-  if (process.env.NODE_ENV === "production") {
+  inFlight = (async () => {
+    const redis = createSettingsClient();
+    if (!redis) return FALLBACK_KEY_RATE_PERCENT;
+
+    try {
+      const raw = await withTimeout(redis.get(SETTINGS_TABLE_KEY), SETTINGS_TIMEOUT_MS);
+      const rows = parseRows(raw);
+      const fromTable = pickNearestCurrentOrPastRate(rows, "key_rate");
+      if (fromTable != null) {
+        cachedRate = fromTable;
+        cachedAtMs = Date.now();
+        return fromTable;
+      }
+    } catch (err) {
+      console.error("[settings] getDefaultKeyRatePercent:", err);
+    }
+
+    cachedRate = FALLBACK_KEY_RATE_PERCENT;
+    cachedAtMs = Date.now();
     return FALLBACK_KEY_RATE_PERCENT;
-  }
+  })();
 
   try {
-    const res = await fetch("https://www.cbr.ru/hd_base/KeyRate/", {
-      next: { revalidate: 43200 },
-      signal: createTimeoutSignal(CBR_FETCH_TIMEOUT_MS),
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; LoanCalc/1.0)",
-        Accept: "text/html",
-      },
-    });
-    if (!res.ok) return FALLBACK_KEY_RATE_PERCENT;
-    const html = await res.text();
-    const m = html.match(
-      /<tr[^>]*class="[^"]*data[^"]*"[^>]*>[\s\S]*?<td[^>]*>[\s\S]*?(\d{1,2}\.\d{2}\.\d{4})[\s\S]*?<\/td>[\s\S]*?<td[^>]*>\s*(\d+,\d+)\s*<\/td>/i
-    );
-    if (m) {
-      const rate = parseFloat(m[2].replace(",", "."));
-      if (Number.isFinite(rate) && rate > 0 && rate < 200) return rate;
-    }
-    const simpler = html.match(
-      /(\d{2}\.\d{2}\.\d{4})<\/td>\s*<td[^>]*>\s*(\d{1,2},\d{1,2})\s*<\/td>/
-    );
-    if (simpler) {
-      const rate = parseFloat(simpler[2].replace(",", "."));
-      if (Number.isFinite(rate) && rate > 0 && rate < 200) return rate;
-    }
-  } catch {
-    /* use fallback */
+    return await inFlight;
+  } finally {
+    inFlight = null;
   }
-
-  return FALLBACK_KEY_RATE_PERCENT;
 }

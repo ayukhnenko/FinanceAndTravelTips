@@ -162,18 +162,9 @@ export default function EarlyRepaymentCalculator({
           />
           <span className="mt-1 block text-xs text-[var(--muted)]">
             {tr(
-              "По умолчанию подставлена ключевая ставка Банка России (при отсутствии данных на сервере — проверьте значение на",
-              "By default, this field uses the Bank of Russia key rate (if unavailable on server, check"
-            )}{" "}
-            <a
-              href="https://www.cbr.ru/hd_base/KeyRate/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="link-accent"
-            >
-              cbr.ru
-            </a>
-            {tr(").", ").")}
+              "По умолчанию подставляется ставка из таблицы настроек приложения; если подходящей записи нет, используется значение по умолчанию.",
+              "By default, this field uses the rate from the app settings table; if no matching row exists, fallback value is used."
+            )}
           </span>
         </label>
 
