@@ -28,6 +28,12 @@ export async function getDefaultKeyRatePercent(): Promise<number> {
     }
   }
 
+  // In production, avoid blocking page render on external cbr.ru availability.
+  // Use configured value (if present) or fallback constant.
+  if (process.env.NODE_ENV === "production") {
+    return FALLBACK_KEY_RATE_PERCENT;
+  }
+
   try {
     const res = await fetch("https://www.cbr.ru/hd_base/KeyRate/", {
       next: { revalidate: 43200 },
