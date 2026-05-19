@@ -1,15 +1,20 @@
-import { Redis } from "@upstash/redis";
+import { getSupabaseAdminClient, supabaseConfigured } from "@/lib/supabase-admin";
 
-const VISITS_KEY = "financeandtraveltips:visits:total";
-const REDIS_OP_TIMEOUT_MS = 900;
+const VISITS_TOTAL_LEGACY_KEY = "financeandtraveltips:visits:total";
+const VISITS_DAY_KEY_PREFIX = "financeandtraveltips:visits:day:";
+const DB_OP_TIMEOUT_MS = Number(process.env.DB_TIMEOUT_MS ?? "2500");
+let migrationPromise: Promise<void> | null = null;
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+async function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs: number
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     return await Promise.race([
       promise,
       new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("redis_timeout")), timeoutMs);
+        timer = setTimeout(() => reject(new Error("db_timeout")), timeoutMs);
       }),
     ]);
   } finally {
@@ -17,67 +22,155 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 }
 
-function trimEnv(v: string | undefined): string | undefined {
-  if (v == null) return undefined;
-  const t = v.trim();
-  return t.length ? t : undefined;
+export function visitsStoreConfigured(): boolean {
+  return supabaseConfigured();
 }
 
-/**
- * REST-адрес и токен Upstash Redis.
- * Поддерживаются стандартные имена Upstash и алиасы Vercel KV (тот же REST API).
- */
-export function getRedisRestConfig(): { url: string; token: string } | null {
-  const url =
-    trimEnv(process.env.UPSTASH_REDIS_REST_URL) ??
-    trimEnv(process.env.KV_REST_API_URL);
-  const token =
-    trimEnv(process.env.UPSTASH_REDIS_REST_TOKEN) ??
-    trimEnv(process.env.KV_REST_API_TOKEN);
+function formatDayKey(date = new Date()): string {
+  const day = date.toISOString().slice(0, 10);
+  return `${VISITS_DAY_KEY_PREFIX}${day}`;
+}
 
-  if (!url || !token) return null;
+function dayFromKey(key: string): string | null {
+  if (!key.startsWith(VISITS_DAY_KEY_PREFIX)) return null;
+  const day = key.slice(VISITS_DAY_KEY_PREFIX.length);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
+}
 
-  if (!url.startsWith("https://")) {
-    console.error(
-      "[visits] UPSTASH_REDIS_REST_URL должен быть HTTPS REST URL (например https://xxx.upstash.io), а не redis://"
-    );
-    return null;
+async function ensureDailyVisitsMigrated(): Promise<void> {
+  if (migrationPromise) {
+    await migrationPromise;
+    return;
   }
 
-  return { url, token };
+  migrationPromise = (async () => {
+    const supabase = getSupabaseAdminClient();
+    if (!supabase) return;
+
+    const todayKey = formatDayKey();
+    const response = await withTimeout(
+      supabase
+        .from("app_counters")
+        .select("key,value")
+        .in("key", [VISITS_TOTAL_LEGACY_KEY, todayKey])
+        .then((r) => r),
+      DB_OP_TIMEOUT_MS
+    );
+    const { data, error } = response;
+    if (error) {
+      console.error("[visits] ensureDailyVisitsMigrated:", error);
+      return;
+    }
+
+    const rows = data ?? [];
+    const legacyValue = Number(
+      rows.find((row) => row.key === VISITS_TOTAL_LEGACY_KEY)?.value ?? 0
+    );
+    if (!Number.isFinite(legacyValue) || legacyValue <= 0) return;
+
+    const todayValue = Number(rows.find((row) => row.key === todayKey)?.value ?? 0);
+    const mergedValue = Math.floor(
+      (Number.isFinite(todayValue) ? todayValue : 0) + legacyValue
+    );
+
+    const upserted = await withTimeout(
+      supabase
+        .from("app_counters")
+        .upsert({ key: todayKey, value: mergedValue }, { onConflict: "key" })
+        .then((r) => r),
+      DB_OP_TIMEOUT_MS
+    );
+    if (upserted.error) {
+      console.error("[visits] ensureDailyVisitsMigrated:upsert:", upserted.error);
+      return;
+    }
+
+    const deleted = await withTimeout(
+      supabase
+        .from("app_counters")
+        .delete()
+        .eq("key", VISITS_TOTAL_LEGACY_KEY)
+        .then((r) => r),
+      DB_OP_TIMEOUT_MS
+    );
+    if (deleted.error) {
+      console.error("[visits] ensureDailyVisitsMigrated:delete:", deleted.error);
+    }
+  })()
+    .catch((err) => {
+      console.error("[visits] ensureDailyVisitsMigrated:", err);
+    })
+    .finally(() => {
+      migrationPromise = Promise.resolve();
+    });
+
+  await migrationPromise;
 }
 
-function createClient(): Redis | null {
-  const cfg = getRedisRestConfig();
-  if (!cfg) return null;
-  return new Redis({ url: cfg.url, token: cfg.token });
-}
-
-export function visitsStoreConfigured(): boolean {
-  return getRedisRestConfig() !== null;
-}
+export type DailyVisitsRow = {
+  date: string;
+  count: number;
+};
 
 export async function incrementTotalVisits(): Promise<number | null> {
-  const redis = createClient();
-  if (!redis) return null;
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return null;
   try {
-    const n = await withTimeout(redis.incr(VISITS_KEY), REDIS_OP_TIMEOUT_MS);
-    return typeof n === "number" ? n : null;
+    await ensureDailyVisitsMigrated();
+    const response = await withTimeout(
+      supabase.rpc("increment_counter", { p_key: formatDayKey() }).then((r) => r),
+      DB_OP_TIMEOUT_MS
+    );
+    const { error } = response;
+    if (error) {
+      console.error("[visits] incrementTotalVisits:", error);
+      return null;
+    }
+    return getTotalVisits();
   } catch (err) {
     console.error("[visits] incrementTotalVisits:", err);
     return null;
   }
 }
 
-export async function getTotalVisits(): Promise<number | null> {
-  const redis = createClient();
-  if (!redis) return null;
+export async function getDailyVisits(): Promise<DailyVisitsRow[] | null> {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return null;
   try {
-    const v = await withTimeout(redis.get(VISITS_KEY), REDIS_OP_TIMEOUT_MS);
-    if (v == null) return 0;
-    if (typeof v === "number") return v;
-    const parsed = parseInt(String(v), 10);
-    return Number.isFinite(parsed) ? parsed : 0;
+    await ensureDailyVisitsMigrated();
+    const response = await withTimeout(
+      supabase
+        .from("app_counters")
+        .select("key,value")
+        .like("key", `${VISITS_DAY_KEY_PREFIX}%`)
+        .then((r) => r),
+      DB_OP_TIMEOUT_MS
+    );
+    const { data, error } = response;
+    if (error) {
+      console.error("[visits] getDailyVisits:", error);
+      return null;
+    }
+    return (data ?? [])
+      .map((row) => {
+        const date = dayFromKey(row.key);
+        const count = Number(row.value);
+        if (!date || !Number.isFinite(count)) return null;
+        return { date, count: Math.floor(count) };
+      })
+      .filter((row): row is DailyVisitsRow => row !== null)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  } catch (err) {
+    console.error("[visits] getDailyVisits:", err);
+    return null;
+  }
+}
+
+export async function getTotalVisits(): Promise<number | null> {
+  try {
+    const rows = await getDailyVisits();
+    if (rows == null) return null;
+    return rows.reduce((sum, row) => sum + row.count, 0);
   } catch (err) {
     console.error("[visits] getTotalVisits:", err);
     return null;

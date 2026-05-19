@@ -13,7 +13,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          "Redis не отвечает. Проверьте URL/токен и логи функции в Vercel (ищите [visits]).",
+          "Supabase не отвечает. Проверьте URL/Service Role Key и логи функции в Vercel (ищите [visits]).",
         count: null,
         configured: true,
       },

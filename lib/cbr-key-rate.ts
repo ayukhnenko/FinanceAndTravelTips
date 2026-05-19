@@ -1,4 +1,8 @@
-import { pickNearestCurrentOrPastRate, readSettingsRows } from "@/lib/settings-store";
+import {
+  pickNearestCurrentOrPastRate,
+  readSettingsRows,
+  seedDefaultSettingsRows,
+} from "@/lib/settings-store";
 
 const FALLBACK_KEY_RATE_PERCENT = 21;
 const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -21,6 +25,13 @@ function refreshRateInBackground(): void {
 
   inFlight = (async () => {
     try {
+      await seedDefaultSettingsRows([
+        {
+          parameter: "key_rate",
+          date: new Date().toISOString().slice(0, 10),
+          rate: FALLBACK_KEY_RATE_PERCENT,
+        },
+      ]);
       const rows = await readSettingsRows();
       const fromTable = pickNearestCurrentOrPastRate(rows, "key_rate");
       cachedRate = fromTable ?? FALLBACK_KEY_RATE_PERCENT;
