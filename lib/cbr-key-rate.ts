@@ -4,6 +4,20 @@
  * DEFAULT_KEY_RATE_PERCENT или обновлять константу при необходимости.
  */
 const FALLBACK_KEY_RATE_PERCENT = 21;
+const CBR_FETCH_TIMEOUT_MS = 1200;
+
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  controller.signal.addEventListener(
+    "abort",
+    () => {
+      clearTimeout(timer);
+    },
+    { once: true }
+  );
+  return controller.signal;
+}
 
 export async function getDefaultKeyRatePercent(): Promise<number> {
   const fromEnv = process.env.DEFAULT_KEY_RATE_PERCENT;
@@ -17,6 +31,7 @@ export async function getDefaultKeyRatePercent(): Promise<number> {
   try {
     const res = await fetch("https://www.cbr.ru/hd_base/KeyRate/", {
       next: { revalidate: 43200 },
+      signal: createTimeoutSignal(CBR_FETCH_TIMEOUT_MS),
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; LoanCalc/1.0)",
         Accept: "text/html",
