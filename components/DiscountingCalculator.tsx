@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/I18nProvider";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -29,14 +32,21 @@ export default function DiscountingCalculator({
   defaultDiscountRatePercent,
 }: DiscountingCalculatorProps) {
   const { tr } = useI18n();
-  const [amount, setAmount] = useState("");
-  const [years, setYears] = useState("");
+  const searchParams = useSearchParams();
+  const [amount, setAmount] = useState(() => searchParams.get("amount") ?? "");
+  const [years, setYears] = useState(() => searchParams.get("years") ?? "");
   const [rate, setRate] = useState(
-    Number.isFinite(defaultDiscountRatePercent) && defaultDiscountRatePercent > 0
-      ? String(defaultDiscountRatePercent)
-      : ""
+    searchParams.get("discountRatePercent") ??
+      (Number.isFinite(defaultDiscountRatePercent) && defaultDiscountRatePercent > 0
+        ? String(defaultDiscountRatePercent)
+        : "")
   );
   const [showResult, setShowResult] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("autocalc") === "1") {
+      setShowResult(true);
+    }
+  }, [searchParams]);
 
   const parsed = useMemo(() => {
     const principal = parseFloat(amount.replace(/\s/g, "").replace(",", "."));
@@ -72,12 +82,15 @@ export default function DiscountingCalculator({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        {tr(
-          "Дисконтирование - будущая стоимость денег",
-          "Discounting - Future Value of Money"
-        )}
-      </h1>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          {tr(
+            "Дисконтирование - будущая стоимость денег",
+            "Discounting - Future Value of Money"
+          )}
+        </h1>
+        <CalculatorInfoInlineButton infoKey="discounting" />
+      </div>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">

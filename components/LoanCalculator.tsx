@@ -19,12 +19,14 @@ import {
   type ScheduleRow,
 } from "@/lib/amortization";
 import { useI18n } from "@/components/I18nProvider";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 export type LoanCalculatorInitial = {
   principal?: string;
   annualRate?: string;
   termYears?: string;
   paymentType?: PaymentType;
+  autoCalc?: boolean;
 };
 
 const rub = new Intl.NumberFormat("ru-RU", {
@@ -100,7 +102,7 @@ export default function LoanCalculator({
     () => initial?.paymentType ?? "annuity"
   );
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
-  const [showResult, setShowResult] = useState(false);
+  const [showResult, setShowResult] = useState(() => Boolean(initial?.autoCalc));
 
   const parsed = useMemo(() => {
     const p = Number(principal.replace(/\s/g, "").replace(/_/g, ""));
@@ -159,9 +161,12 @@ export default function LoanCalculator({
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-          {tr("Калькулятор кредита", "Loan Calculator")}
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+            {tr("Калькулятор кредита", "Loan Calculator")}
+          </h1>
+          <CalculatorInfoInlineButton infoKey="loan" />
+        </div>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[340px_1fr]">

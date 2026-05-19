@@ -2,15 +2,18 @@
 export const BENCHMARK_EXCESS_RATIO_STRONG = 0.13;
 
 export type EarlyRepaymentVerdict = "invest_strong" | "invest_flexible" | "repay_early";
+export type EarlyRepaymentSnapshot = {
+  creditEff: number;
+  bench: number;
+  verdict: EarlyRepaymentVerdict;
+  margin: number;
+};
 
-/**
- * Ориентир сравнения: если ставка депозита выше НАОС — берём её, иначе НАОС.
- */
-export function effectiveBenchmark(naosPercent: number, depositPercent: number | null): number {
+/** Ориентир сравнения: используем введённую пользователем ставку. */
+export function effectiveBenchmark(naosPercent: number): number {
   const naos = Number(naosPercent);
   if (!Number.isFinite(naos)) return NaN;
-  if (depositPercent == null || !Number.isFinite(depositPercent)) return naos;
-  return depositPercent > naos ? depositPercent : naos;
+  return naos;
 }
 
 /**
@@ -45,4 +48,17 @@ export function getEarlyRepaymentVerdict(
     return "invest_strong";
   }
   return "invest_flexible";
+}
+
+export function calculateEarlyRepaymentSnapshot(
+  annualRatePercent: number,
+  isMortgage: boolean,
+  benchmarkPercent: number
+): EarlyRepaymentSnapshot {
+  const creditEff = effectiveCreditRate(annualRatePercent, isMortgage);
+  const bench = effectiveBenchmark(benchmarkPercent);
+  const verdict = getEarlyRepaymentVerdict(creditEff, bench);
+  const margin =
+    creditEff > 0 && Number.isFinite(bench) ? (bench - creditEff) / creditEff : NaN;
+  return { creditEff, bench, verdict, margin };
 }

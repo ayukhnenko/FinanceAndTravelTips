@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   BENCHMARK_EXCESS_RATIO_STRONG,
-  effectiveBenchmark,
-  effectiveCreditRate,
-  getEarlyRepaymentVerdict,
+  calculateEarlyRepaymentSnapshot,
   type EarlyRepaymentVerdict,
 } from "@/lib/early-repayment";
 import { useI18n } from "@/components/I18nProvider";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 function pct(n: number): string {
   if (!Number.isFinite(n)) return "—";
@@ -23,45 +24,42 @@ export default function EarlyRepaymentCalculator({
   defaultNaosPercent,
 }: Props) {
   const { tr } = useI18n();
-  const [rate, setRate] = useState("");
-  const [isMortgage, setIsMortgage] = useState(false);
+  const searchParams = useSearchParams();
+  const [rate, setRate] = useState(() => searchParams.get("rate") ?? "");
+  const [isMortgage, setIsMortgage] = useState(() => {
+    const raw = (searchParams.get("isMortgage") ?? "").toLowerCase();
+    return raw === "true" || raw === "1" || raw === "yes";
+  });
   const [naos, setNaos] = useState(() =>
-    Number.isFinite(defaultNaosPercent)
-      ? String(defaultNaosPercent).replace(".", ",")
-      : "21"
+    (searchParams.get("benchmarkRate") ??
+      (Number.isFinite(defaultNaosPercent)
+        ? String(defaultNaosPercent).replace(".", ",")
+        : "21"))
   );
-  const [deposit, setDeposit] = useState("");
   const [showResult, setShowResult] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("autocalc") === "1") {
+      setShowResult(true);
+    }
+  }, [searchParams]);
 
   const parsed = useMemo(() => {
     const r = parseFloat(rate.replace(",", "."));
     const n = parseFloat(naos.replace(",", "."));
-    const dRaw = deposit.trim();
-    const d =
-      dRaw === "" ? null : parseFloat(dRaw.replace(",", "."));
     return {
       rate: r,
       naos: n,
-      deposit: d,
       valid:
         Number.isFinite(r) &&
         r >= 0 &&
         Number.isFinite(n) &&
-        n >= 0 &&
-        (d === null || (Number.isFinite(d) && d >= 0)),
+        n >= 0,
     };
-  }, [rate, naos, deposit]);
+  }, [rate, naos]);
 
   const snapshot = useMemo(() => {
     if (!parsed.valid) return null;
-    const creditEff = effectiveCreditRate(parsed.rate, isMortgage);
-    const bench = effectiveBenchmark(parsed.naos, parsed.deposit);
-    const verdict = getEarlyRepaymentVerdict(creditEff, bench);
-    const margin =
-      creditEff > 0 && Number.isFinite(bench)
-        ? (bench - creditEff) / creditEff
-        : NaN;
-    return { creditEff, bench, verdict, margin };
+    return calculateEarlyRepaymentSnapshot(parsed.rate, isMortgage, parsed.naos);
   }, [parsed, isMortgage]);
 
   function calculate() {
@@ -107,12 +105,15 @@ export default function EarlyRepaymentCalculator({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        {tr(
-          "Выгодно ли гасить кредит досрочно",
-          "Is Early Repayment Worth It?"
-        )}
-      </h1>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          {tr(
+            "Выгодно ли гасить кредит досрочно",
+            "Is Early Repayment Worth It?"
+          )}
+        </h1>
+        <CalculatorInfoInlineButton infoKey="early_repay" />
+      </div>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">
@@ -146,7 +147,10 @@ export default function EarlyRepaymentCalculator({
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            {tr("Ориентир (НАОС), % годовых", "Benchmark (NAOS), % per year")}
+            {tr(
+              "Ставка по которой можно открыть вклад или купить облигации, % годовых",
+              "Rate at which you can open a deposit or buy bonds, % per year"
+            )}
           </span>
           <input
             type="text"
@@ -170,26 +174,6 @@ export default function EarlyRepaymentCalculator({
               cbr.ru
             </a>
             {tr(").", ").")}
-          </span>
-        </label>
-
-        <label className="block">
-          <span className="mb-1.5 block text-sm text-[var(--muted)]">
-            {tr("Ставка по депозиту (необязательно), % годовых", "Deposit rate (optional), % per year")}
-          </span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={deposit}
-            onChange={(e) => setDeposit(e.target.value)}
-            className="field-input"
-            placeholder={tr("оставьте пустым, если нет", "leave empty if none")}
-          />
-          <span className="mt-1 block text-xs text-[var(--muted)]">
-            {tr(
-              "Если указана и она выше НАОС — для сравнения берётся она; если ниже или равна НАОС — используется НАОС.",
-              "If provided and above NAOS, it is used for comparison; if lower or equal, NAOS is used."
-            )}
           </span>
         </label>
 
@@ -235,20 +219,12 @@ export default function EarlyRepaymentCalculator({
               <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
                 {pct(snapshot.bench)}
               </p>
-              {parsed.deposit != null &&
-              Number.isFinite(parsed.deposit) &&
-              parsed.deposit > parsed.naos ? (
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  {tr(
-                    "Использована ставка депозита (выше НАОС)",
-                    "Deposit rate used (higher than NAOS)"
-                  )}
-                </p>
-              ) : (
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  {tr("НАОС (или депозит, если выгоднее)", "NAOS (or deposit, if better)")}
-                </p>
-              )}
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                {tr(
+                  "Используется введённая ставка для вклада/облигаций",
+                  "Using the entered deposit/bond rate"
+                )}
+              </p>
             </div>
           </div>
 

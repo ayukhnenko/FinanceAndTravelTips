@@ -8,7 +8,6 @@ import TelegramChannelPromo from "@/components/TelegramChannelPromo";
 import VisitBadge from "@/components/VisitBadge";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import CalculatorInfoButton from "@/components/CalculatorInfoButton";
-import CalculatorInfoModal from "@/components/CalculatorInfoModal";
 import { useI18n } from "@/components/I18nProvider";
 import {
   calculatorInfo,
@@ -45,6 +44,10 @@ const navSections = [
       { href: "/loan", key: "loan" as const },
     ],
   },
+  {
+    key: "docs",
+    links: [{ href: "/api-docs", key: "api_docs" as const }],
+  },
 ] as const;
 
 type TooltipState = {
@@ -54,11 +57,22 @@ type TooltipState = {
   maxWidth: number;
 };
 
+const infoKeyToHref: Record<CalculatorInfoKey, string> = {
+  early_repay: "/",
+  bonds_cover: "/bonds",
+  card_benefit: "/credit-card-benefit",
+  mortgage_sale: "/mortgage-sale",
+  mortgage_conditions_compare: "/mortgage-conditions-compare",
+  rent_vs_buy: "/rent-vs-buy",
+  compound: "/compound",
+  discounting: "/discounting",
+  loan: "/loan",
+};
+
 export default function AppNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { tr, lang } = useI18n();
-  const [openInfoKey, setOpenInfoKey] = useState<CalculatorInfoKey | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [mounted, setMounted] = useState(false);
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,6 +85,10 @@ export default function AppNav() {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    setTooltip(null);
+  }, [pathname]);
 
   const clearShowTimer = useCallback(() => {
     if (showTimerRef.current) {
@@ -130,9 +148,10 @@ export default function AppNav() {
     credits: tr("Кредиты", "Credits"),
     real_estate: tr("Недвижимость", "Real Estate"),
     basic: tr("Базовые вещи", "Core Tools"),
+    docs: tr("Техническая документация", "Technical Documentation"),
   };
 
-  const linkLabels: Record<CalculatorInfoKey, string> = {
+  const linkLabels: Record<CalculatorInfoKey | "api_docs", string> = {
     early_repay: tr(
       "Выгодно ли гасить кредит досрочно",
       "Is Early Repayment Worth It?"
@@ -160,6 +179,7 @@ export default function AppNav() {
       "Discounting - Future Value of Money"
     ),
     loan: tr("Кредитный калькулятор", "Loan Calculator"),
+    api_docs: tr("Описание API", "API Overview"),
   };
 
   const infoButtonLabel = tr(
@@ -216,8 +236,14 @@ export default function AppNav() {
                   {sectionTitles[section.key]}
                 </p>
                 {section.links.map(({ href, key }) => {
-                  const active =
+                  const activeByPath =
                     href === "/" ? pathname === "/" : pathname.startsWith(href);
+                  const activeByInfoPage =
+                    key !== "api_docs" &&
+                    pathname === `/calculator-info/${key}` &&
+                    infoKeyToHref[key as CalculatorInfoKey] === href;
+                  const active = activeByPath || activeByInfoPage;
+                  const hasInfoButton = key !== "api_docs";
                   return (
                     <div
                       key={href}
@@ -237,17 +263,23 @@ export default function AppNav() {
                       >
                         {linkLabels[key]}
                       </Link>
-                      <div className="px-1 py-2">
-                        <CalculatorInfoButton
-                          label={infoButtonLabel}
-                          onShowTooltip={(el) => scheduleTooltip(key, el)}
-                          onHideTooltip={scheduleHideTooltip}
-                          onOpen={() => {
-                            hideTooltipNow();
-                            setOpenInfoKey(key);
-                          }}
-                        />
-                      </div>
+                      {hasInfoButton ? (
+                        <div className="px-1 py-2">
+                          <CalculatorInfoButton
+                            label={infoButtonLabel}
+                            onShowTooltip={(el) =>
+                              scheduleTooltip(key as CalculatorInfoKey, el)
+                            }
+                            onHideTooltip={scheduleHideTooltip}
+                            onOpen={() => {
+                              hideTooltipNow();
+                              router.push(`/calculator-info/${key}`);
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="px-1 py-2" aria-hidden />
+                      )}
                     </div>
                   );
                 })}
@@ -275,14 +307,6 @@ export default function AppNav() {
       {mounted && tooltipPortal
         ? createPortal(tooltipPortal, document.body)
         : null}
-
-      {openInfoKey ? (
-        <CalculatorInfoModal
-          infoKey={openInfoKey}
-          title={linkLabels[openInfoKey]}
-          onClose={() => setOpenInfoKey(null)}
-        />
-      ) : null}
     </>
   );
 }

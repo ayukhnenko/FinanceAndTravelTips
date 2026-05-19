@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/I18nProvider";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -25,6 +28,7 @@ function compoundAmount(
 
 export default function CompoundInterestCalculator() {
   const { tr } = useI18n();
+  const searchParams = useSearchParams();
   const periods = useMemo<{ id: Period; label: string; nPerYear: number }[]>(
     () => [
       { id: "monthly", label: tr("Ежемесячно", "Monthly"), nPerYear: 12 },
@@ -34,11 +38,21 @@ export default function CompoundInterestCalculator() {
     [tr]
   );
 
-  const [principal, setPrincipal] = useState("");
-  const [rate, setRate] = useState("");
-  const [years, setYears] = useState("");
-  const [period, setPeriod] = useState<Period>("monthly");
+  const [principal, setPrincipal] = useState(() => searchParams.get("principal") ?? "");
+  const [rate, setRate] = useState(() => searchParams.get("annualRatePercent") ?? "");
+  const [years, setYears] = useState(() => searchParams.get("years") ?? "");
+  const [period, setPeriod] = useState<Period>(() => {
+    const raw = searchParams.get("period");
+    return raw === "quarterly" || raw === "yearly" || raw === "monthly"
+      ? raw
+      : "monthly";
+  });
   const [showResult, setShowResult] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("autocalc") === "1") {
+      setShowResult(true);
+    }
+  }, [searchParams]);
 
   const parsed = useMemo(() => {
     const p = parseFloat(principal.replace(/\s/g, "").replace(",", "."));
@@ -74,9 +88,12 @@ export default function CompoundInterestCalculator() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        {tr("Калькулятор сложных процентов", "Compound Interest Calculator")}
-      </h1>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          {tr("Калькулятор сложных процентов", "Compound Interest Calculator")}
+        </h1>
+        <CalculatorInfoInlineButton infoKey="compound" />
+      </div>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">

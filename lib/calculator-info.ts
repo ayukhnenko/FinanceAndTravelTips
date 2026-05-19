@@ -26,11 +26,11 @@ export const calculatorInfo: Record<CalculatorInfoKey, CalculatorInfoContent> = 
       "Compares your loan rate with deposit yield and the key rate to see if early repayment pays off.",
     fullRu: [
       "Калькулятор отвечает на вопрос: выгоднее направить свободные деньги на досрочное погашение кредита или оставить их на вкладе (или в другом инструменте с известной доходностью).",
-      "Учитываются ставка по кредиту, ставка вклада, ключевая ставка ЦБ как ориентир и надбавка +0,5 п.п. для ипотеки (страховка). В результате — рекомендация и наглядное сравнение эффективных ставок.",
+      "Учитываются ставка по кредиту, ставка по которой можно открыть вклад или купить облигации, а также надбавка +0,5 п.п. для ипотеки (страховка). В результате — рекомендация и наглядное сравнение эффективных ставок.",
     ],
     fullEn: [
       "This tool answers whether free cash is better used for early loan repayment or kept on deposit (or another instrument with a known yield).",
-      "It uses the loan rate, deposit rate, the Bank of Russia key rate as a benchmark, and adds +0.5 p.p. for mortgages (insurance). You get a recommendation and a clear comparison of effective rates.",
+      "It uses the loan rate, the rate at which you can open a deposit or buy bonds, and adds +0.5 p.p. for mortgages (insurance). You get a recommendation and a clear comparison of effective rates.",
     ],
     audienceRu: [
       "Заёмщикам с ипотекой или потребительским кредитом, которые думают о частичном досрочном погашении.",

@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/I18nProvider";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -60,18 +63,25 @@ type Props = {
 
 export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
   const { tr } = useI18n();
-  const [propertyValue, setPropertyValue] = useState("");
-  const [debt, setDebt] = useState("");
-  const [monthlyPayment, setMonthlyPayment] = useState("");
-  const [monthsLeft, setMonthsLeft] = useState("");
-  const [rentPayment, setRentPayment] = useState("");
-  const [rentGrowthPercent, setRentGrowthPercent] = useState("");
+  const searchParams = useSearchParams();
+  const [propertyValue, setPropertyValue] = useState(() => searchParams.get("propertyValue") ?? "");
+  const [debt, setDebt] = useState(() => searchParams.get("debt") ?? "");
+  const [monthlyPayment, setMonthlyPayment] = useState(() => searchParams.get("monthlyPayment") ?? "");
+  const [monthsLeft, setMonthsLeft] = useState(() => searchParams.get("monthsLeft") ?? "");
+  const [rentPayment, setRentPayment] = useState(() => searchParams.get("rentPayment") ?? "");
+  const [rentGrowthPercent, setRentGrowthPercent] = useState(() => searchParams.get("rentGrowthPercent") ?? "");
   const [naos, setNaos] = useState(() =>
-    Number.isFinite(defaultNaosPercent)
+    searchParams.get("naosPercent") ??
+    (Number.isFinite(defaultNaosPercent)
       ? String(defaultNaosPercent).replace(".", ",")
-      : "21"
+      : "21")
   );
   const [showResult, setShowResult] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("autocalc") === "1") {
+      setShowResult(true);
+    }
+  }, [searchParams]);
 
   const parsed = useMemo(() => {
     const value = parseNumber(propertyValue);
@@ -182,12 +192,15 @@ export default function MortgageSaleCalculator({ defaultNaosPercent }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        {tr(
-          "Выгодно ли продавать квартиру в ипотеке",
-          "Is Selling a Mortgaged Apartment Worth It?"
-        )}
-      </h1>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          {tr(
+            "Выгодно ли продавать квартиру в ипотеке",
+            "Is Selling a Mortgaged Apartment Worth It?"
+          )}
+        </h1>
+        <CalculatorInfoInlineButton infoKey="mortgage_sale" />
+      </div>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">

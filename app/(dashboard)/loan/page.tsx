@@ -22,6 +22,12 @@ function parsePaymentType(raw: string | undefined): PaymentType | undefined {
   return undefined;
 }
 
+function parseAutoCalc(raw: string | undefined): boolean {
+  if (!raw) return false;
+  const v = raw.toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 type PageProps = {
   searchParams: Record<string, string | string[] | undefined>;
 };
@@ -35,6 +41,7 @@ export default function LoanCalculatorPage({ searchParams }: PageProps) {
       one(searchParams.termYears) ??
       one(searchParams.srok),
     paymentType: parsePaymentType(one(searchParams.type)),
+    autoCalc: parseAutoCalc(one(searchParams.autocalc)),
   };
 
   return <LoanCalculator initial={initial} />;

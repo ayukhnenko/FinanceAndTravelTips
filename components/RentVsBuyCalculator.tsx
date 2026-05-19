@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
   Legend,
@@ -21,6 +23,7 @@ import {
   totalGrowthPercent,
 } from "@/lib/rent-vs-buy";
 import { useI18n } from "@/components/I18nProvider";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -46,17 +49,19 @@ export default function RentVsBuyCalculator({
   defaultDepositRatePercent,
 }: Props) {
   const { tr } = useI18n();
+  const searchParams = useSearchParams();
   const DEPOSIT_TAX_RATE_PERCENT = 13;
-  const [rentCost, setRentCost] = useState("");
-  const [apartmentPrice, setApartmentPrice] = useState("");
-  const [mortgageRate, setMortgageRate] = useState("");
-  const [downPayment, setDownPayment] = useState("");
+  const [rentCost, setRentCost] = useState(() => searchParams.get("rentCost") ?? "");
+  const [apartmentPrice, setApartmentPrice] = useState(() => searchParams.get("apartmentPrice") ?? "");
+  const [mortgageRate, setMortgageRate] = useState(() => searchParams.get("mortgageRatePercent") ?? "");
+  const [downPayment, setDownPayment] = useState(() => searchParams.get("downPayment") ?? "");
   const [depositRate, setDepositRate] = useState(() =>
-    Number.isFinite(defaultDepositRatePercent)
+    searchParams.get("depositRatePercent") ??
+    (Number.isFinite(defaultDepositRatePercent)
       ? String(defaultDepositRatePercent).replace(".", ",")
-      : "21"
+      : "21")
   );
-  const [mortgageTermYears, setMortgageTermYears] = useState("20");
+  const [mortgageTermYears, setMortgageTermYears] = useState(() => searchParams.get("mortgageTermYears") ?? "20");
   const [discountRate, setDiscountRate] = useState(() =>
     Number.isFinite(defaultDepositRatePercent)
       ? String(defaultDepositRatePercent).replace(".", ",")
@@ -64,6 +69,11 @@ export default function RentVsBuyCalculator({
   );
   const [showResult, setShowResult] = useState(false);
   const [appliedDiscountRate, setAppliedDiscountRate] = useState<number | null>(null);
+  useEffect(() => {
+    if (searchParams.get("autocalc") === "1") {
+      setShowResult(true);
+    }
+  }, [searchParams]);
 
   const parsed = useMemo(() => {
     const rent = parseNumber(rentCost);
@@ -223,9 +233,12 @@ export default function RentVsBuyCalculator({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        {tr("Аренда против покупки", "Rent vs Buy")}
-      </h1>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          {tr("Аренда против покупки", "Rent vs Buy")}
+        </h1>
+        <CalculatorInfoInlineButton infoKey="rent_vs_buy" />
+      </div>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">

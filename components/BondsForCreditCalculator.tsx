@@ -1,12 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   nominalForCouponOnlyNoDrawdown,
   presentValueOfMonthlyPayments,
   semiannualCouponFromNominal,
 } from "@/lib/bonds-for-credit";
 import { useI18n } from "@/components/I18nProvider";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -22,13 +25,20 @@ export default function BondsForCreditCalculator({
   defaultKeyRatePercent,
 }: Props) {
   const { tr } = useI18n();
-  const [monthlyPayment, setMonthlyPayment] = useState("");
-  const [monthsLeft, setMonthsLeft] = useState("");
-  const [remainingDebt, setRemainingDebt] = useState("");
+  const searchParams = useSearchParams();
+  const [monthlyPayment, setMonthlyPayment] = useState(() => searchParams.get("monthlyPayment") ?? "");
+  const [monthsLeft, setMonthsLeft] = useState(() => searchParams.get("monthsLeft") ?? "");
+  const [remainingDebt, setRemainingDebt] = useState(() => searchParams.get("remainingDebt") ?? "");
   const [keyRate, setKeyRate] = useState(() =>
+    searchParams.get("annualYieldPercent") ??
     String(defaultKeyRatePercent).replace(".", ",")
   );
   const [showResult, setShowResult] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("autocalc") === "1") {
+      setShowResult(true);
+    }
+  }, [searchParams]);
 
   const parsed = useMemo(() => {
     const m = parseFloat(monthlyPayment.replace(/\s/g, "").replace(",", "."));
@@ -120,9 +130,12 @@ export default function BondsForCreditCalculator({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        {tr("Сколько инвестиций нужно, чтобы покрыть кредит", "How Much Should You Invest to Cover a Loan?")}
-      </h1>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          {tr("Сколько инвестиций нужно, чтобы покрыть кредит", "How Much Should You Invest to Cover a Loan?")}
+        </h1>
+        <CalculatorInfoInlineButton infoKey="bonds_cover" />
+      </div>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">

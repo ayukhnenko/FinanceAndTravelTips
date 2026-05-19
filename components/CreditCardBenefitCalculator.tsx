@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/I18nProvider";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -17,14 +20,21 @@ export default function CreditCardBenefitCalculator({
   defaultRatePercent,
 }: Props) {
   const { tr } = useI18n();
-  const [monthlySpending, setMonthlySpending] = useState("");
-  const [graceDays, setGraceDays] = useState("");
+  const searchParams = useSearchParams();
+  const [monthlySpending, setMonthlySpending] = useState(() => searchParams.get("monthlySpending") ?? "");
+  const [graceDays, setGraceDays] = useState(() => searchParams.get("graceDays") ?? "");
   const [savingsRate, setSavingsRate] = useState(() =>
-    Number.isFinite(defaultRatePercent)
+    searchParams.get("savingsRatePercent") ??
+    (Number.isFinite(defaultRatePercent)
       ? String(defaultRatePercent).replace(".", ",")
-      : "21"
+      : "21")
   );
   const [showResult, setShowResult] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("autocalc") === "1") {
+      setShowResult(true);
+    }
+  }, [searchParams]);
 
   const parsed = useMemo(() => {
     const spending = parseFloat(
@@ -60,9 +70,12 @@ export default function CreditCardBenefitCalculator({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        {tr("Выгода от оплаты кредиткой", "Credit Card Spending Benefit")}
-      </h1>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          {tr("Выгода от оплаты кредиткой", "Credit Card Spending Benefit")}
+        </h1>
+        <CalculatorInfoInlineButton infoKey="card_benefit" />
+      </div>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <label className="block">

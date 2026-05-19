@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
   Legend,
@@ -17,6 +18,7 @@ import {
   buildMortgageConditionsComparison,
   type MortgageConditionInput,
 } from "@/lib/mortgage-conditions-compare";
+import CalculatorInfoInlineButton from "@/components/CalculatorInfoInlineButton";
 
 type MortgageOptionForm = {
   id: string;
@@ -72,6 +74,39 @@ function makeOption(index: number): MortgageOptionForm {
   };
 }
 
+function parseQueryBool(raw: string | null): boolean {
+  if (!raw) return false;
+  const v = raw.toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+function parseOptionsFromQuery(raw: string | null): MortgageOptionForm[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length < 2) return null;
+    return parsed.map((item: unknown, index: number) => {
+      const src = item as Record<string, unknown>;
+      const graceMonths = Number(src.gracePeriodMonths ?? 0);
+      const graceRate =
+        src.graceRatePercent == null || !Number.isFinite(Number(src.graceRatePercent))
+          ? ""
+          : String(src.graceRatePercent).replace(".", ",");
+      return {
+        id: String(src.id ?? `option-${index + 1}`),
+        label: String(src.label ?? `Вариант ${index + 1}`),
+        annualRate: String(src.annualRatePercent ?? "").replace(".", ","),
+        minDownPaymentPercent: String(src.minDownPaymentPercent ?? "").replace(".", ","),
+        useGracePeriod: graceMonths > 0,
+        graceMonths: graceMonths > 0 ? String(Math.round(graceMonths)) : "",
+        graceRate,
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
 function colorForIndex(index: number): string {
   const palette = [
     "#1d4ed8",
@@ -94,22 +129,43 @@ export default function MortgageConditionsCompareCalculator({
   defaultDepositRatePercent,
 }: Props) {
   const { tr, lang } = useI18n();
-  const [propertyPrice, setPropertyPrice] = useState("");
-  const [maxDownPayment, setMaxDownPayment] = useState("");
-  const [mortgageTermYears, setMortgageTermYears] = useState("20");
-  const [depositRate, setDepositRate] = useState(() =>
-    Number.isFinite(defaultDepositRatePercent)
-      ? String(defaultDepositRatePercent).replace(".", ",")
-      : "21"
+  const searchParams = useSearchParams();
+  const initialOptions = parseOptionsFromQuery(searchParams.get("conditions"));
+  const [propertyPrice, setPropertyPrice] = useState(() => searchParams.get("propertyPrice") ?? "");
+  const [maxDownPayment, setMaxDownPayment] = useState(() => searchParams.get("maxDownPayment") ?? "");
+  const [mortgageTermYears, setMortgageTermYears] = useState(
+    () =>
+      searchParams.get("mortgageTermYears") ??
+      (() => {
+        const termMonthsRaw = searchParams.get("termMonths");
+        if (!termMonthsRaw) return "20";
+        const termMonths = Number(termMonthsRaw);
+        if (!Number.isFinite(termMonths) || termMonths <= 0) return "20";
+        return String(termMonths / 12).replace(".", ",");
+      })()
   );
-  const [discountRate, setDiscountRate] = useState("0");
-  const [applyDiscount, setApplyDiscount] = useState(false);
+  const [depositRate, setDepositRate] = useState(() =>
+    searchParams.get("annualDepositRatePercent") ??
+    (Number.isFinite(defaultDepositRatePercent)
+      ? String(defaultDepositRatePercent).replace(".", ",")
+      : "21")
+  );
+  const [discountRate, setDiscountRate] = useState(
+    () => searchParams.get("annualDiscountRatePercent") ?? "0"
+  );
+  const [applyDiscount, setApplyDiscount] = useState(() =>
+    parseQueryBool(searchParams.get("applyDiscount"))
+  );
   const [showByYears, setShowByYears] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [options, setOptions] = useState<MortgageOptionForm[]>([
-    makeOption(0),
-    makeOption(1),
-  ]);
+  const [options, setOptions] = useState<MortgageOptionForm[]>(
+    () => initialOptions ?? [makeOption(0), makeOption(1)]
+  );
+  useEffect(() => {
+    if (searchParams.get("autocalc") === "1") {
+      setShowResult(true);
+    }
+  }, [searchParams]);
 
   const parsed = useMemo(() => {
     const principal = parseAmount(propertyPrice);
@@ -228,7 +284,7 @@ export default function MortgageConditionsCompareCalculator({
     if (!comparison) return [];
     const periodZeroRow: Record<string, number | string> = {
       period: 0,
-      periodLabel: showByYears ? tr("Старт", "Start") : undefined,
+      periodLabel: showByYears ? tr("Старт", "Start") : "",
     };
     for (const option of comparison.options) {
       const movedFromFirstPeriod = option.monthlyExtraPrepayment[0] ?? 0;
@@ -360,9 +416,12 @@ export default function MortgageConditionsCompareCalculator({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-        {tr("Сравнение ипотечных условий", "Mortgage Terms Comparison")}
-      </h1>
+      <div className="mb-8 flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+          {tr("Сравнение ипотечных условий", "Mortgage Terms Comparison")}
+        </h1>
+        <CalculatorInfoInlineButton infoKey="mortgage_conditions_compare" />
+      </div>
 
       <div className="card-panel space-y-5 !shadow-[var(--shadow-card)]">
         <div className="grid gap-4 md:grid-cols-2 md:items-end">
