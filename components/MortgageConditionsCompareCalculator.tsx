@@ -275,6 +275,16 @@ export default function MortgageConditionsCompareCalculator({
       ),
     [parsed.parsedOptions]
   );
+  const insufficientDownPaymentIds = useMemo(
+    () =>
+      new Set(
+        parsed.parsedOptions
+          .filter((option) => option.valid && !option.downPaymentEnough)
+          .map((option) => option.id)
+      ),
+    [parsed.parsedOptions]
+  );
+  const hasDownPaymentIssues = insufficientDownPaymentIds.size > 0;
 
   const graceMonthsByOptionId = useMemo(() => {
     const map = new Map<string, number>();
@@ -518,7 +528,11 @@ export default function MortgageConditionsCompareCalculator({
           {options.map((option, index) => (
             <div
               key={option.id}
-              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+              className={`rounded-xl border bg-[var(--card)] p-4 ${
+                insufficientDownPaymentIds.has(option.id)
+                  ? "border-rose-400"
+                  : "border-[var(--border)]"
+              }`}
             >
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <input
@@ -633,11 +647,11 @@ export default function MortgageConditionsCompareCalculator({
           </button>
         </div>
 
-        {!parsed.valid ? (
+        {!parsed.valid && !hasDownPaymentIssues ? (
           <p className="text-sm text-amber-800">
             {tr(
-              "Проверьте ввод: стоимость > 0, максимальный взнос в диапазоне [0; стоимость], ставка вклада неотрицательная; в каждом варианте нужна ставка и минимальный первоначальный взнос в процентах (0-100), а льготный период (если включен) — положительный, меньше срока и со своей ставкой. Если по любому варианту максимального первоначального взноса недостаточно, расчет не запускается.",
-              "Check input: property value > 0, max down payment in [0; property value], deposit rate non-negative; each option needs a rate and minimum down payment in percent (0-100), and grace period (if enabled) must be positive, shorter than term, and have its own rate. If max down payment is insufficient for any option, calculation is blocked."
+              "Проверьте ввод: стоимость > 0, максимальный взнос в диапазоне [0; стоимость], ставка вклада неотрицательная; в каждом варианте нужна ставка и минимальный первоначальный взнос в процентах (0-100), а льготный период (если включен) — положительный, меньше срока и со своей ставкой.",
+              "Check input: property value > 0, max down payment in [0; property value], deposit rate non-negative; each option needs a rate and minimum down payment in percent (0-100), and grace period (if enabled) must be positive, shorter than term, and have its own rate."
             )}
           </p>
         ) : null}
