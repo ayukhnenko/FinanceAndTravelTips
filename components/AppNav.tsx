@@ -302,17 +302,6 @@ export default function AppNav() {
             ))}
             <div className="space-y-3 border-t border-[var(--border)] pt-4 pb-1">
               <TelegramChannelPromo variant="sidebar" />
-              <button
-                type="button"
-                onClick={async () => {
-                  await fetch("/api/auth/logout", { method: "POST" });
-                  router.push("/login");
-                  router.refresh();
-                }}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--muted)] transition hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
-              >
-                {tr("Выйти", "Log out")}
-              </button>
             </div>
           </nav>
         </div>
