@@ -3,6 +3,9 @@
     "loan-api-docs": {
       "command": "npm",
       "args": ["run", "mcp:api-docs"]
+    },
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=irxocxrnhxszorrptcxt"
     }
   }
 }
