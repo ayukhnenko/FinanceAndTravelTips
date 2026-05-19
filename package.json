@@ -4,7 +4,7 @@
   "description": "Финансовые сервисы для жизни",
   "private": true,
   "scripts": {
-    "dev": "next dev --experimental-https --experimental-https-key certs/localhost-key.pem --experimental-https-cert certs/localhost-cert.pem",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
