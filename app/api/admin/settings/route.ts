@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { normalizeSettingsRows, readSettingsRows, writeSettingsRows } from "@/lib/settings-store";
+import { getDailyVisits } from "@/lib/visits-store";
 
 export async function GET() {
   const rows = await readSettingsRows();
-  return NextResponse.json({ rows });
+  const visits = await getDailyVisits();
+  return NextResponse.json({ rows, visits: visits ?? [] });
 }
 
 export async function PUT(request: Request) {

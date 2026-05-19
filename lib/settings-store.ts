@@ -1,5 +1,4 @@
-import { Redis } from "@upstash/redis";
-import { getRedisRestConfig } from "@/lib/visits-store";
+import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export type SettingsRateRow = {
   parameter: string;
@@ -7,11 +6,12 @@ export type SettingsRateRow = {
   rate: number;
 };
 
-const SETTINGS_TABLE_KEY =
-  process.env.SETTINGS_TABLE_KEY ?? "financeandtraveltips:settings:table";
 const SETTINGS_TIMEOUT_MS = Number(process.env.SETTINGS_TIMEOUT_MS ?? "2500");
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+async function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs: number
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     return await Promise.race([
@@ -23,12 +23,6 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   } finally {
     if (timer) clearTimeout(timer);
   }
-}
-
-function createSettingsClient(): Redis | null {
-  const cfg = getRedisRestConfig();
-  if (!cfg) return null;
-  return new Redis({ url: cfg.url, token: cfg.token });
 }
 
 export function toValidRate(v: unknown): number | null {
@@ -94,20 +88,26 @@ export function pickNearestCurrentOrPastRate(
 }
 
 export async function readSettingsRows(): Promise<SettingsRateRow[]> {
-  const redis = createSettingsClient();
-  if (!redis) return [];
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return [];
   try {
-    const raw = await withTimeout(redis.get(SETTINGS_TABLE_KEY), SETTINGS_TIMEOUT_MS);
-    const parsed =
-      typeof raw === "string"
-        ? (() => {
-            try {
-              return JSON.parse(raw);
-            } catch {
-              return [];
-            }
-          })()
-        : raw;
+    const response = await withTimeout(
+      supabase
+        .from("app_settings_rates")
+        .select("parameter,effective_date,rate")
+        .then((r) => r),
+      SETTINGS_TIMEOUT_MS
+    );
+    const { data, error } = response;
+    if (error) {
+      console.error("[settings] readSettingsRows:", error);
+      return [];
+    }
+    const parsed = (data ?? []).map((row) => ({
+      parameter: row.parameter,
+      date: row.effective_date,
+      rate: row.rate,
+    }));
     return normalizeSettingsRows(parsed);
   } catch (err) {
     console.error("[settings] readSettingsRows:", err);
@@ -116,17 +116,49 @@ export async function readSettingsRows(): Promise<SettingsRateRow[]> {
 }
 
 export async function writeSettingsRows(rows: SettingsRateRow[]): Promise<boolean> {
-  const redis = createSettingsClient();
-  if (!redis) return false;
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return false;
   const normalized = normalizeSettingsRows(rows);
   try {
-    await withTimeout(
-      redis.set(SETTINGS_TABLE_KEY, JSON.stringify(normalized)),
+    const deleted = await withTimeout(
+      supabase
+        .from("app_settings_rates")
+        .delete()
+        .neq("parameter", "__never__")
+        .then((r) => r),
       SETTINGS_TIMEOUT_MS
     );
+    if (deleted.error) {
+      console.error("[settings] writeSettingsRows:delete:", deleted.error);
+      return false;
+    }
+
+    if (normalized.length > 0) {
+      const insertRows = normalized.map((row) => ({
+        parameter: row.parameter,
+        effective_date: row.date,
+        rate: row.rate,
+      }));
+      const inserted = await withTimeout(
+        supabase.from("app_settings_rates").insert(insertRows).then((r) => r),
+        SETTINGS_TIMEOUT_MS
+      );
+      if (inserted.error) {
+        console.error("[settings] writeSettingsRows:insert:", inserted.error);
+        return false;
+      }
+    }
     return true;
   } catch (err) {
     console.error("[settings] writeSettingsRows:", err);
     return false;
   }
+}
+
+export async function seedDefaultSettingsRows(
+  rows: SettingsRateRow[]
+): Promise<void> {
+  const current = await readSettingsRows();
+  if (current.length > 0) return;
+  await writeSettingsRows(rows);
 }

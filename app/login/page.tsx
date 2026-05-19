@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, Suspense, useRef } from "react";
 import { isCorrectVoicePassword, normalizeSpeechText } from "@/lib/voice-password";
 import TelegramChannelPromo from "@/components/TelegramChannelPromo";
-import VisitBadge from "@/components/VisitBadge";
 import { useI18n } from "@/components/I18nProvider";
 
 type ListenState = "idle" | "listening" | "unsupported";
@@ -226,11 +225,6 @@ function LoginForm() {
         </p>
 
         <TelegramChannelPromo />
-
-        <div className="flex flex-col items-center gap-2 border-t border-[var(--border)] pt-4">
-          <span className="text-xs text-[var(--muted)]">{tr("Посещения", "Visits")}</span>
-          <VisitBadge />
-        </div>
       </div>
     </div>
   );

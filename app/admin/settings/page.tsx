@@ -9,6 +9,11 @@ type Row = {
   rate: string;
 };
 
+type VisitRow = {
+  date: string;
+  count: number;
+};
+
 function parseRateInput(raw: string): number | null {
   const text = raw.trim().replace(",", ".");
   if (!/^\d+(\.\d+)?$/.test(text)) return null;
@@ -28,6 +33,7 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [visits, setVisits] = useState<VisitRow[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -40,6 +46,7 @@ export default function AdminSettingsPage() {
         }
         const data = (await resp.json()) as {
           rows?: Array<{ parameter: string; date: string; rate: number }>;
+          visits?: Array<{ date: string; count: number }>;
         };
         if (!mounted) return;
         const nextRows =
@@ -49,6 +56,16 @@ export default function AdminSettingsPage() {
             rate: String(r.rate),
           })) ?? [];
         setRows(nextRows.length ? nextRows : [emptyRow()]);
+        const nextVisits = (data.visits ?? [])
+          .filter(
+            (v) =>
+              typeof v.date === "string" &&
+              /^\d{4}-\d{2}-\d{2}$/.test(v.date) &&
+              Number.isFinite(Number(v.count))
+          )
+          .map((v) => ({ date: v.date, count: Number(v.count) }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+        setVisits(nextVisits);
       } catch {
         if (mounted) setError("Не удалось загрузить настройки");
       } finally {
@@ -68,6 +85,11 @@ export default function AdminSettingsPage() {
         return parseRateInput(r.rate) == null;
       }),
     [rows]
+  );
+
+  const totalVisits = useMemo(
+    () => visits.reduce((sum, row) => sum + row.count, 0),
+    [visits]
   );
 
   function updateRow(index: number, patch: Partial<Row>) {
@@ -225,6 +247,35 @@ export default function AdminSettingsPage() {
         ) : null}
         {error ? <p className="mt-3 text-sm text-rose-700">{error}</p> : null}
         {message ? <p className="mt-3 text-sm text-emerald-700">{message}</p> : null}
+      </div>
+
+      <div className="card-panel mt-6 overflow-x-auto">
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">Визиты по дням</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Хранение ведется по датам, итог рассчитан как сумма по всем строкам.
+          </p>
+        </div>
+        <table className="w-full min-w-[420px] border-collapse">
+          <thead>
+            <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
+              <th className="px-2 py-2">Дата</th>
+              <th className="px-2 py-2">Визитов</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visits.map((row) => (
+              <tr key={row.date} className="border-b border-[var(--border)]/70">
+                <td className="px-2 py-2">{row.date}</td>
+                <td className="px-2 py-2 tabular-nums">{row.count.toLocaleString("ru-RU")}</td>
+              </tr>
+            ))}
+            <tr className="border-t border-[var(--border)] bg-[var(--accent-soft)]/40 font-semibold text-[var(--foreground)]">
+              <td className="px-2 py-2">Итого</td>
+              <td className="px-2 py-2 tabular-nums">{totalVisits.toLocaleString("ru-RU")}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );

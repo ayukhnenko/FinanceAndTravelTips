@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import TelegramChannelPromo from "@/components/TelegramChannelPromo";
-import VisitBadge from "@/components/VisitBadge";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import CalculatorInfoButton from "@/components/CalculatorInfoButton";
 import { useI18n } from "@/components/I18nProvider";
@@ -303,7 +302,6 @@ export default function AppNav() {
             ))}
             <div className="space-y-3 border-t border-[var(--border)] pt-4 pb-1">
               <TelegramChannelPromo variant="sidebar" />
-              <VisitBadge className="w-full justify-center" />
               <button
                 type="button"
                 onClick={async () => {
