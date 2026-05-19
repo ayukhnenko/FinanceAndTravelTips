@@ -7,7 +7,6 @@ import {
   Legend,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -362,13 +361,13 @@ export default function MortgageConditionsCompareCalculator({
 
   const chartRows = useMemo(() => {
     if (!comparison) return [];
-    return comparison.periods.map((period) => {
+    const yearsCount = Math.ceil(comparison.termMonths / 12);
+    return Array.from({ length: yearsCount }, (_, idx) => {
+      const year = idx + 1;
+      const period = Math.min(comparison.termMonths, year * 12);
       const row: Record<string, number | string> = {
-        period,
-        label:
-          period % 12 === 0
-            ? tr(`${Math.round(period / 12)} год`, `Year ${Math.round(period / 12)}`)
-            : String(period),
+        year,
+        label: tr(`${year} год`, `Year ${year}`),
       };
       for (const option of comparison.options) {
         row[option.id] = option.cumulativeNetPayments[period - 1] ?? 0;
@@ -376,23 +375,6 @@ export default function MortgageConditionsCompareCalculator({
       return row;
     });
   }, [comparison, tr]);
-
-  const prepaymentEvents = useMemo(() => {
-    if (!comparison) return [];
-    return comparison.options
-      .map((option, index) => {
-        const monthIndex = option.monthlyExtraPrepayment.findIndex((value) => value > 0);
-        if (monthIndex < 0 || monthIndex === 0) return null;
-        return {
-          optionId: option.id,
-          label: option.label,
-          month: monthIndex + 1,
-          amount: option.monthlyExtraPrepayment[monthIndex],
-          color: colorForIndex(index),
-        };
-      })
-      .filter((event): event is NonNullable<typeof event> => event != null);
-  }, [comparison]);
 
   const totalsForSummary = useMemo(() => {
     if (!comparison) return null;
@@ -868,11 +850,11 @@ export default function MortgageConditionsCompareCalculator({
                     vertical={false}
                   />
                   <XAxis
-                    dataKey="period"
+                    dataKey="year"
                     tick={{ fill: "var(--chart-tick)", fontSize: 11 }}
                     tickLine={false}
                     axisLine={{ stroke: "var(--chart-grid)" }}
-                    interval={Math.max(0, Math.floor(parsed.termMonths / 12) - 1)}
+                    interval={0}
                   />
                   <YAxis
                     tick={{ fill: "var(--chart-tick)", fontSize: 11 }}
@@ -890,28 +872,10 @@ export default function MortgageConditionsCompareCalculator({
                     labelStyle={{ color: "var(--foreground)" }}
                     formatter={(value: number, name: string) => [rub.format(value), name]}
                     labelFormatter={(value) =>
-                      tr(`Месяц ${value}`, `Month ${value}`)
+                      tr(`Год ${value}`, `Year ${value}`)
                     }
                   />
                   <Legend />
-                  {prepaymentEvents.map((event) => (
-                    <ReferenceLine
-                      key={event.optionId}
-                      x={event.month}
-                      stroke={event.color}
-                      strokeDasharray="4 4"
-                      ifOverflow="visible"
-                      label={{
-                        value: tr(
-                          `${event.label}: + с депозита`,
-                          `${event.label}: + from deposit`
-                        ),
-                        position: "top",
-                        fill: event.color,
-                        fontSize: 11,
-                      }}
-                    />
-                  ))}
                   {comparison.options.map((option, index) => (
                     <Line
                       key={option.id}
