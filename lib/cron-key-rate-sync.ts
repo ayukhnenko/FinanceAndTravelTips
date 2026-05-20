@@ -12,22 +12,10 @@ export type KeyRateCronJob = {
 /** Единый источник расписания; vercel.json должен ему соответствовать. */
 export const KEY_RATE_CRON_JOBS: KeyRateCronJob[] = [
   {
-    id: "morning",
-    scheduleUtc: "0 0 * * *",
-    timeMoscow: "03:00",
-    description: "Утренняя синхронизация ставки ЦБ",
-  },
-  {
-    id: "afternoon",
-    scheduleUtc: "0 12 * * *",
-    timeMoscow: "15:00",
-    description: "Дневная синхронизация ставки ЦБ",
-  },
-  {
-    id: "evening",
-    scheduleUtc: "5 17 * * *",
-    timeMoscow: "20:05",
-    description: "Вечерняя синхронизация ставки ЦБ",
+    id: "nightly",
+    scheduleUtc: "0 20 * * *",
+    timeMoscow: "23:00",
+    description: "Ежедневная синхронизация ставки ЦБ",
   },
 ];
 

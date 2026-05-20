@@ -2,11 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/sync-key-rate",
-      "schedule": "0 0,12 * * *"
-    },
-    {
-      "path": "/api/cron/sync-key-rate",
-      "schedule": "5 17 * * *"
+      "schedule": "0 20 * * *"
     }
   ]
 }
