@@ -1,0 +1,38 @@
+---
+description: Git workflow — не коммитить в main, только merge
+alwaysApply: true
+---
+
+# Git: ветки main и develop
+
+## main — только через merge
+
+- **Никогда** не коммить и не пушить изменения напрямую в `main`.
+- В `main` попадает только код, уже проверенный в dev/preview, через **merge** (обычно `develop` → `main`).
+- Не делать `git push origin main` после обычной разработки — только если пользователь явно просит релиз/merge в prod.
+
+## Куда сохранять работу
+
+- Разработка и коммиты — в **`develop`** или feature-ветках с merge/PR в `develop`.
+- Перед коммитом проверить текущую ветку: `git branch --show-current`.
+- Если активна `main` и нужно сохранить изменения — переключиться на `develop` (или создать feature-ветку от `develop`), закоммитить там, затем push.
+
+## Push
+
+- Обычный push после работы: `git push origin develop` (или feature-ветка).
+- Push в `main` — только по явному запросу пользователя на релиз/прод.
+
+## Пример
+
+```bash
+# ✅ Правильно
+git checkout develop
+git add ...
+git commit -m "..."
+git push origin develop
+
+# ❌ Неправильно (без явной просьбы о релизе)
+git checkout main
+git commit -m "..."
+git push origin main
+```

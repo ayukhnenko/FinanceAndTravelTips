@@ -8,6 +8,7 @@ import TelegramChannelPromo from "@/components/TelegramChannelPromo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import CalculatorInfoButton from "@/components/CalculatorInfoButton";
 import { useI18n } from "@/components/I18nProvider";
+import { getAppStandLabel } from "@/lib/app-branding";
 import {
   calculatorInfo,
   type CalculatorInfoKey,
@@ -227,6 +228,9 @@ export default function AppNav() {
       </span>
     ) : null;
 
+  const standLabel = getAppStandLabel();
+  const appTitle = tr("Калькуляторы для жизни", "Life Calculators");
+
   return (
     <>
       <aside className="relative z-50 flex w-full shrink-0 flex-col border-b border-[var(--border)] bg-[var(--sidebar)] shadow-[var(--shadow-card)] md:sticky md:top-0 md:h-screen md:w-64 md:border-b-0 md:border-r">
@@ -235,7 +239,15 @@ export default function AppNav() {
             href="/"
             className="block text-lg font-bold leading-snug tracking-tight text-[var(--foreground)] hover:text-[var(--accent)]"
           >
-            {tr("Калькуляторы для жизни", "Life Calculators")}
+            {standLabel ? (
+              <>
+                <span className="text-[var(--accent)]">{standLabel}</span>
+                <span className="text-[var(--muted)]"> · </span>
+                {appTitle}
+              </>
+            ) : (
+              appTitle
+            )}
           </Link>
           <div className="mt-2">
             <LanguageSwitcher />
