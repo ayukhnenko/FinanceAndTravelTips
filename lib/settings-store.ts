@@ -5,6 +5,7 @@ export type SettingsRateRow = {
   parameter: string;
   date: string;
   rate: number;
+  loadedAt?: string | null;
 };
 
 const SETTINGS_TIMEOUT_MS = Number(process.env.SETTINGS_TIMEOUT_MS ?? "2500");
@@ -56,7 +57,12 @@ export function normalizeSettingsRows(raw: unknown): SettingsRateRow[] {
       const rate = toValidRate(row.rate);
       if (!parameter || !date || rate == null) return null;
       if (toDateMs(date) == null) return null;
-      return { parameter, date, rate };
+      const loadedAtRaw = row.loadedAt ?? row.created_at;
+      const loadedAt =
+        typeof loadedAtRaw === "string" && loadedAtRaw.trim()
+          ? loadedAtRaw.trim()
+          : null;
+      return { parameter, date, rate, loadedAt };
     })
     .filter((row): row is SettingsRateRow => row !== null)
     .sort((a, b) => {
@@ -103,7 +109,7 @@ export async function readSettingsRows(): Promise<SettingsRateRow[]> {
     const response = await withTimeout(
       supabase
         .from("app_settings_rates")
-        .select("parameter,effective_date,rate")
+        .select("parameter,effective_date,rate,created_at")
         .then((r) => r),
       SETTINGS_TIMEOUT_MS
     );
@@ -116,6 +122,7 @@ export async function readSettingsRows(): Promise<SettingsRateRow[]> {
       parameter: row.parameter,
       date: row.effective_date,
       rate: row.rate,
+      loadedAt: row.created_at,
     }));
     return normalizeSettingsRows(parsed);
   } catch (err) {

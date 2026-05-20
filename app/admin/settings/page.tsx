@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { todayIsoDateMoscow } from "@/lib/date-utils";
+import { formatDateTimeMoscow, todayIsoDateMoscow } from "@/lib/date-utils";
 
 type Row = {
   parameter: string;
   date: string;
   rate: string;
+  loadedAt: string | null;
 };
 
 type VisitRow = {
@@ -34,7 +35,7 @@ type CronSettings = {
 };
 
 function emptyRow(): Row {
-  return { parameter: "key_rate", date: "", rate: "" };
+  return { parameter: "key_rate", date: "", rate: "", loadedAt: null };
 }
 
 function todayIsoDate(): string {
@@ -59,7 +60,7 @@ export default function AdminSettingsPage() {
         return false;
       }
       const data = (await resp.json()) as {
-        rows?: Array<{ parameter: string; date: string; rate: number }>;
+        rows?: Array<{ parameter: string; date: string; rate: number; loadedAt?: string | null }>;
         visits?: Array<{ date: string; count: number }>;
         cron?: CronSettings;
       };
@@ -68,6 +69,7 @@ export default function AdminSettingsPage() {
           parameter: r.parameter,
           date: r.date,
           rate: String(r.rate),
+          loadedAt: typeof r.loadedAt === "string" ? r.loadedAt : null,
         })) ?? [];
       setRows(nextRows.length ? nextRows : [emptyRow()]);
       const nextVisits = (data.visits ?? [])
@@ -197,12 +199,13 @@ export default function AdminSettingsPage() {
           ) : null}
         </div>
 
-        <table className="w-full min-w-[640px] border-collapse">
+        <table className="w-full min-w-[760px] border-collapse">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
               <th className="px-2 py-2">Параметр</th>
               <th className="px-2 py-2">Актуально на</th>
               <th className="px-2 py-2">Ставка, %</th>
+              <th className="px-2 py-2">Загружено (MSK)</th>
             </tr>
           </thead>
           <tbody>
@@ -219,6 +222,9 @@ export default function AdminSettingsPage() {
                   <td className="px-2 py-2">{row.parameter}</td>
                   <td className="px-2 py-2">{row.date}</td>
                   <td className="px-2 py-2">{row.rate}</td>
+                  <td className="px-2 py-2 tabular-nums whitespace-nowrap">
+                    {formatDateTimeMoscow(row.loadedAt)}
+                  </td>
                 </tr>
               );
             })}
