@@ -15,6 +15,24 @@ type VisitRow = {
   count: number;
 };
 
+type CronJobRow = {
+  id: string;
+  scheduleUtc: string;
+  timeMoscow: string;
+  description: string;
+};
+
+type CronSettings = {
+  environmentName: string;
+  vercelEnv: string | null;
+  standLabel: string | null;
+  cronSecretConfigured: boolean;
+  cronActiveOnDeploy: boolean;
+  timezone: "Europe/Moscow";
+  path: string;
+  jobs: CronJobRow[];
+};
+
 function emptyRow(): Row {
   return { parameter: "key_rate", date: "", rate: "" };
 }
@@ -31,6 +49,7 @@ export default function AdminSettingsPage() {
   const [visits, setVisits] = useState<VisitRow[]>([]);
   const [syncingCbr, setSyncingCbr] = useState(false);
   const [cbrSyncMessage, setCbrSyncMessage] = useState<string | null>(null);
+  const [cron, setCron] = useState<CronSettings | null>(null);
 
   const reloadAdminData = useCallback(async (): Promise<boolean> => {
     try {
@@ -42,6 +61,7 @@ export default function AdminSettingsPage() {
       const data = (await resp.json()) as {
         rows?: Array<{ parameter: string; date: string; rate: number }>;
         visits?: Array<{ date: string; count: number }>;
+        cron?: CronSettings;
       };
       const nextRows =
         data.rows?.map((r) => ({
@@ -60,6 +80,7 @@ export default function AdminSettingsPage() {
         .map((v) => ({ date: v.date, count: Number(v.count) }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setVisits(nextVisits);
+      setCron(data.cron ?? null);
       return true;
     } catch {
       setError("Не удалось загрузить настройки");
@@ -208,6 +229,79 @@ export default function AdminSettingsPage() {
           исторические отображаются серым.
         </p>
         {error ? <p className="mt-3 text-sm text-rose-700">{error}</p> : null}
+      </div>
+
+      <div className="card-panel mt-6 overflow-x-auto">
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">
+            Cron: синхронизация ставки ЦБ
+          </h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Автоматический запуск с сохранением в БД. Расписание задаётся в коде и vercel.json.
+          </p>
+        </div>
+        {cron ? (
+          <>
+            <dl className="mb-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
+                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">Среда</dt>
+                <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+                  {cron.environmentName}
+                </dd>
+                {cron.standLabel && cron.vercelEnv ? (
+                  <dd className="mt-1 text-xs text-[var(--muted)]">
+                    Vercel: {cron.vercelEnv}
+                  </dd>
+                ) : cron.vercelEnv ? (
+                  <dd className="mt-1 text-xs text-[var(--muted)]">
+                    Vercel: {cron.vercelEnv}
+                  </dd>
+                ) : null}
+              </div>
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
+                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                  Cron на деплое
+                </dt>
+                <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+                  {cron.cronActiveOnDeploy ? "Активен" : "Не активен"}
+                </dd>
+                <dd className="mt-1 text-xs text-[var(--muted)]">
+                  {cron.cronSecretConfigured
+                    ? "CRON_SECRET задан"
+                    : "CRON_SECRET не задан"}
+                </dd>
+              </div>
+            </dl>
+            <p className="mb-3 text-sm text-[var(--muted)]">
+              Endpoint: <code className="text-[var(--foreground)]">{cron.path}</code>
+            </p>
+            <table className="w-full min-w-[520px] border-collapse">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
+                  <th className="px-2 py-2">Задача</th>
+                  <th className="px-2 py-2">Время (MSK)</th>
+                  <th className="px-2 py-2">Cron (UTC)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cron.jobs.map((job) => (
+                  <tr key={job.id} className="border-b border-[var(--border)]/70">
+                    <td className="px-2 py-2">{job.description}</td>
+                    <td className="px-2 py-2 tabular-nums">{job.timeMoscow}</td>
+                    <td className="px-2 py-2 font-mono text-xs">{job.scheduleUtc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!cron.cronActiveOnDeploy ? (
+              <p className="mt-3 text-sm text-[var(--muted)]">
+                Cron выполняется только на Production-деплое Vercel при заданном CRON_SECRET.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm text-[var(--muted)]">Настройки cron недоступны.</p>
+        )}
       </div>
 
       <div className="card-panel mt-6 overflow-x-auto">
