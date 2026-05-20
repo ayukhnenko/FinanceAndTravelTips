@@ -8,7 +8,7 @@ type Row = {
   parameter: string;
   date: string;
   rate: string;
-  loadedAt: string | null;
+  loadedAt?: string | null;
 };
 
 type VisitRow = {
@@ -35,7 +35,7 @@ type CronSettings = {
 };
 
 function emptyRow(): Row {
-  return { parameter: "key_rate", date: "", rate: "", loadedAt: null };
+  return { parameter: "key_rate", date: "", rate: "" };
 }
 
 function todayIsoDate(): string {

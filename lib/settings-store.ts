@@ -5,7 +5,7 @@ export type SettingsRateRow = {
   parameter: string;
   date: string;
   rate: number;
-  loadedAt?: string | null;
+  loadedAt?: string;
 };
 
 const SETTINGS_TIMEOUT_MS = Number(process.env.SETTINGS_TIMEOUT_MS ?? "2500");
@@ -48,7 +48,7 @@ export function toDateMs(date: string): number | null {
 
 export function normalizeSettingsRows(raw: unknown): SettingsRateRow[] {
   if (!Array.isArray(raw)) return [];
-  return raw
+  const parsed = raw
     .map((item) => {
       if (!item || typeof item !== "object") return null;
       const row = item as Record<string, unknown>;
@@ -61,11 +61,15 @@ export function normalizeSettingsRows(raw: unknown): SettingsRateRow[] {
       const loadedAt =
         typeof loadedAtRaw === "string" && loadedAtRaw.trim()
           ? loadedAtRaw.trim()
-          : null;
-      return { parameter, date, rate, loadedAt };
+          : undefined;
+      const normalized: SettingsRateRow = loadedAt
+        ? { parameter, date, rate, loadedAt }
+        : { parameter, date, rate };
+      return normalized;
     })
-    .filter((row): row is SettingsRateRow => row !== null)
-    .sort((a, b) => {
+    .filter((row): row is SettingsRateRow => row !== null);
+
+  return parsed.sort((a, b) => {
       if (a.parameter !== b.parameter) return a.parameter.localeCompare(b.parameter);
       const ams = toDateMs(a.date) ?? 0;
       const bms = toDateMs(b.date) ?? 0;
