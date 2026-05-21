@@ -49,6 +49,9 @@ body {
   .link-accent {
     @apply font-medium text-[var(--link)] underline-offset-2 hover:text-[var(--accent-hover)] hover:underline;
   }
+  .stand-label-prod {
+    color: #be123c;
+  }
 }
 
 /* Подсказки в полях */

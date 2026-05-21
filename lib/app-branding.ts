@@ -16,7 +16,7 @@ export function getPublicAppStandLabel(): string | null {
 }
 
 export function standLabelClassName(label: string): string {
-  return isProdStandLabel(label) ? "text-rose-600" : "text-[var(--accent)]";
+  return isProdStandLabel(label) ? "stand-label-prod" : "text-[var(--accent)]";
 }
 
 export function withAppStandLabel(title: string): string {
