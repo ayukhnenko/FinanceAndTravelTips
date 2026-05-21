@@ -60,8 +60,15 @@ function resolveDepositSourceFilter(dataSource: string): DepositSourceFilter | n
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyDepositSourceFilter(query: any, filter: DepositSourceFilter) {
+type StringFilterQuery<T> = {
+  like(column: string, pattern: string): T;
+  eq(column: string, value: string): T;
+};
+
+function applyDepositSourceFilter<T extends StringFilterQuery<T>>(
+  query: T,
+  filter: DepositSourceFilter
+): T {
   if (filter.spreadsheetId) {
     return query.like("data_source", `%/d/${filter.spreadsheetId}/%`);
   }
