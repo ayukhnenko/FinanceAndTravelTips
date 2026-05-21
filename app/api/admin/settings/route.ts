@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAdminDepositsCronSettings } from "@/lib/cron-deposits-sync";
 import { getAdminCronSettings } from "@/lib/cron-key-rate-sync";
 import {
   readEditableAppSettings,
@@ -19,7 +20,14 @@ export async function GET() {
     readSyncLogs({ limit: 50 }),
   ]);
   return NextResponse.json(
-    { rows, visits: visits ?? [], cron: getAdminCronSettings(), appParams, syncLogs },
+    {
+      rows,
+      visits: visits ?? [],
+      cron: getAdminCronSettings(),
+      depositsCron: getAdminDepositsCronSettings(),
+      appParams,
+      syncLogs,
+    },
     {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

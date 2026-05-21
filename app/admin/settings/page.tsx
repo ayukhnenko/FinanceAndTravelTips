@@ -74,7 +74,7 @@ function formatSyncKind(kind: SyncLogRow["syncKind"]): string {
 }
 
 function formatSyncTrigger(trigger: string): string {
-  if (trigger === "admin") return "Админка";
+  if (trigger === "admin") return "Администратор";
   if (trigger === "cron") return "Cron";
   return trigger || "—";
 }
@@ -121,6 +121,69 @@ function shortenSource(source: string, max = 48): string {
   return `${text.slice(0, max - 1)}…`;
 }
 
+function CronSchedulePanel({
+  title,
+  subtitle,
+  cron,
+}: {
+  title: string;
+  subtitle: string;
+  cron: CronSettings;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-3">
+      <h3 className="text-sm font-semibold text-[var(--foreground)]">{title}</h3>
+      <p className="mt-1 text-sm text-[var(--muted)]">{subtitle}</p>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+          <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">Среда</dt>
+          <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+            {cron.environmentName}
+          </dd>
+          {cron.vercelEnv ? (
+            <dd className="mt-1 text-xs text-[var(--muted)]">Vercel: {cron.vercelEnv}</dd>
+          ) : null}
+        </div>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+          <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">Cron на деплое</dt>
+          <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+            {cron.cronActiveOnDeploy ? "Активен" : "Не активен"}
+          </dd>
+          <dd className="mt-1 text-xs text-[var(--muted)]">
+            {cron.cronSecretConfigured ? "CRON_SECRET задан" : "CRON_SECRET не задан"}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-sm text-[var(--muted)]">
+        Endpoint: <code className="text-[var(--foreground)]">{cron.path}</code>
+      </p>
+      <table className="mt-3 w-full min-w-[520px] border-collapse">
+        <thead>
+          <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
+            <th className="px-2 py-2">Задача</th>
+            <th className="px-2 py-2">Время (MSK)</th>
+            <th className="px-2 py-2">Cron (UTC)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cron.jobs.map((job) => (
+            <tr key={job.id} className="border-b border-[var(--border)]/70">
+              <td className="px-2 py-2">{job.description}</td>
+              <td className="px-2 py-2 tabular-nums">{job.timeMoscow}</td>
+              <td className="px-2 py-2 font-mono text-xs">{job.scheduleUtc}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!cron.cronActiveOnDeploy ? (
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          Cron выполняется только на Production-деплое Vercel при заданном CRON_SECRET.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function emptyRow(): Row {
   return { parameter: "key_rate", date: "", rate: "" };
 }
@@ -138,6 +201,7 @@ export default function AdminSettingsPage() {
   const [syncingCbr, setSyncingCbr] = useState(false);
   const [cbrSyncMessage, setCbrSyncMessage] = useState<string | null>(null);
   const [cron, setCron] = useState<CronSettings | null>(null);
+  const [depositsCron, setDepositsCron] = useState<CronSettings | null>(null);
   const [appParams, setAppParams] = useState<AppSettingRow[]>([]);
   const [savingAppParams, setSavingAppParams] = useState(false);
   const [appParamsMessage, setAppParamsMessage] = useState<string | null>(null);
@@ -173,6 +237,7 @@ export default function AdminSettingsPage() {
         rows?: Array<{ parameter: string; date: string; rate: number; loadedAt?: string | null }>;
         visits?: Array<{ date: string; count: number }>;
         cron?: CronSettings;
+        depositsCron?: CronSettings;
         appParams?: AppSettingRow[];
         syncLogs?: SyncLogRow[];
       };
@@ -195,6 +260,7 @@ export default function AdminSettingsPage() {
         .sort((a, b) => a.date.localeCompare(b.date));
       setVisits(nextVisits);
       setCron(data.cron ?? null);
+      setDepositsCron(data.depositsCron ?? null);
       setAppParams(data.appParams ?? []);
       setSyncLogs(data.syncLogs ?? []);
       await reloadDepositsData();
@@ -504,6 +570,7 @@ export default function AdminSettingsPage() {
           </h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Загрузка сохраняет предложения по вкладам в Supabase. URL таблицы — в параметрах выше.
+            В журнале загрузок указывается источник запуска: администратор или cron.
           </p>
         </div>
 
@@ -554,6 +621,14 @@ export default function AdminSettingsPage() {
 
           {depositsMessage ? (
             <p className="text-sm text-[var(--muted)]">{depositsMessage}</p>
+          ) : null}
+
+          {depositsCron ? (
+            <CronSchedulePanel
+              title="Cron: синхронизация вкладов"
+              subtitle="Автоматический запуск той же функции, что и кнопка «Загрузить из Google Sheets»."
+              cron={depositsCron}
+            />
           ) : null}
         </div>
       </div>
@@ -638,64 +713,11 @@ export default function AdminSettingsPage() {
           </p>
         </div>
         {cron ? (
-          <>
-            <dl className="mb-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">Среда</dt>
-                <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
-                  {cron.environmentName}
-                </dd>
-                {cron.standLabel && cron.vercelEnv ? (
-                  <dd className="mt-1 text-xs text-[var(--muted)]">
-                    Vercel: {cron.vercelEnv}
-                  </dd>
-                ) : cron.vercelEnv ? (
-                  <dd className="mt-1 text-xs text-[var(--muted)]">
-                    Vercel: {cron.vercelEnv}
-                  </dd>
-                ) : null}
-              </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Cron на деплое
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
-                  {cron.cronActiveOnDeploy ? "Активен" : "Не активен"}
-                </dd>
-                <dd className="mt-1 text-xs text-[var(--muted)]">
-                  {cron.cronSecretConfigured
-                    ? "CRON_SECRET задан"
-                    : "CRON_SECRET не задан"}
-                </dd>
-              </div>
-            </dl>
-            <p className="mb-3 text-sm text-[var(--muted)]">
-              Endpoint: <code className="text-[var(--foreground)]">{cron.path}</code>
-            </p>
-            <table className="w-full min-w-[520px] border-collapse">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-                  <th className="px-2 py-2">Задача</th>
-                  <th className="px-2 py-2">Время (MSK)</th>
-                  <th className="px-2 py-2">Cron (UTC)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cron.jobs.map((job) => (
-                  <tr key={job.id} className="border-b border-[var(--border)]/70">
-                    <td className="px-2 py-2">{job.description}</td>
-                    <td className="px-2 py-2 tabular-nums">{job.timeMoscow}</td>
-                    <td className="px-2 py-2 font-mono text-xs">{job.scheduleUtc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!cron.cronActiveOnDeploy ? (
-              <p className="mt-3 text-sm text-[var(--muted)]">
-                Cron выполняется только на Production-деплое Vercel при заданном CRON_SECRET.
-              </p>
-            ) : null}
-          </>
+          <CronSchedulePanel
+            title="Cron: синхронизация ставки ЦБ"
+            subtitle="Автоматический запуск с сохранением в БД. Расписание задаётся в коде и vercel.json."
+            cron={cron}
+          />
         ) : (
           <p className="text-sm text-[var(--muted)]">Настройки cron недоступны.</p>
         )}
