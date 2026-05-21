@@ -1,4 +1,4 @@
-import { getAppStandLabel } from "@/lib/app-branding";
+import { getAppStandLabel, standLabelClassName } from "@/lib/app-branding";
 
 type StandPrefixedTitleProps = {
   title: string;
@@ -17,7 +17,7 @@ export default function StandPrefixedTitle({
     <Tag className={className}>
       {standLabel ? (
         <>
-          <span className="text-[var(--accent)]">{standLabel}</span>
+          <span className={standLabelClassName(standLabel)}>{standLabel}</span>
           <span className="text-[var(--muted)]"> · </span>
           {title}
         </>
