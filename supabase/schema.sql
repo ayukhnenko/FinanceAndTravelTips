@@ -37,3 +37,74 @@ create table if not exists public.app_settings_rates (
 
 create index if not exists app_settings_rates_parameter_date_idx
   on public.app_settings_rates (parameter, effective_date desc);
+
+-- Параметры приложения (URL ЦБ, Google Sheets и др.) — ключ/значение.
+create table if not exists public.app_settings_params (
+  parameter text primary key,
+  value text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.app_deposit_offers (
+  id bigint generated always as identity primary key,
+  sort_order int not null default 0,
+  beacon text not null default '',
+  nominal_rate_percent numeric(8,4),
+  rate_monthly_equiv_percent numeric(8,4),
+  rate_end_equiv_percent numeric(8,4),
+  rate_annual_equiv_percent numeric(8,4),
+  interest_payment_type text not null default '',
+  interest_payment_timing text not null default '',
+  term_years numeric(8,4),
+  term_days int,
+  bank_name text not null default '',
+  region text not null default '',
+  assets_rank text not null default '',
+  rating text not null default '',
+  product_name text not null default '',
+  min_amount_thousands text not null default '',
+  replenishment text not null default '',
+  withdrawal text not null default '',
+  conditions text not null default '',
+  max_amount_text text not null default '',
+  data_source text not null default '',
+  product_url text not null default '',
+  raw_row jsonb not null default '[]'::jsonb,
+  synced_at timestamptz not null default now()
+);
+
+create index if not exists app_deposit_offers_synced_at_idx
+  on public.app_deposit_offers (synced_at desc);
+
+create index if not exists app_deposit_offers_bank_idx
+  on public.app_deposit_offers (bank_name);
+
+alter table public.app_deposit_offers
+  add column if not exists max_amount_text text not null default '';
+
+alter table public.app_deposit_offers
+  add column if not exists data_source text not null default '';
+
+create index if not exists app_deposit_offers_data_source_idx
+  on public.app_deposit_offers (data_source);
+
+-- Журнал загрузок ставки ЦБ и вкладов в БД.
+create table if not exists public.app_sync_logs (
+  id bigint generated always as identity primary key,
+  sync_kind text not null check (sync_kind in ('key_rate', 'deposits')),
+  status text not null check (status in ('success', 'error')),
+  source text not null default '',
+  trigger_source text not null default '',
+  inserted_count int not null default 0,
+  rate numeric(8,4),
+  effective_date date,
+  error_message text not null default '',
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists app_sync_logs_created_at_idx
+  on public.app_sync_logs (created_at desc);
+
+create index if not exists app_sync_logs_kind_created_at_idx
+  on public.app_sync_logs (sync_kind, created_at desc);

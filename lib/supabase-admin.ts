@@ -2,6 +2,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let cachedClient: SupabaseClient | null = null;
 
+export function resetSupabaseAdminClient(): void {
+  cachedClient = null;
+}
+
 function trimEnv(v: string | undefined): string | undefined {
   if (v == null) return undefined;
   const t = v.trim();
@@ -21,6 +25,18 @@ export function supabaseConfigured(): boolean {
   return getSupabaseConfig() !== null;
 }
 
+function supabaseFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD") {
+    return fetch(input, {
+      ...init,
+      cache: "no-store",
+    });
+  }
+  // POST/PATCH/DELETE: plain fetch — Next.js cache options break large Supabase writes.
+  return fetch(input, init);
+}
+
 export function getSupabaseAdminClient(): SupabaseClient | null {
   if (cachedClient) return cachedClient;
   const cfg = getSupabaseConfig();
@@ -30,10 +46,8 @@ export function getSupabaseAdminClient(): SupabaseClient | null {
       autoRefreshToken: false,
       persistSession: false,
     },
-    // In Node runtime, force native fetch to avoid intermittent resolver issues
-    // observed with the default fetch shim in local dev.
     global: {
-      fetch,
+      fetch: supabaseFetch,
     },
   });
   return cachedClient;

@@ -5,6 +5,8 @@ import {
   readSettingsRows,
   seedDefaultSettingsRows,
 } from "@/lib/settings-store";
+import { readCbrKeyRateUrl } from "@/lib/settings-params-store";
+import { appendSyncLog } from "@/lib/sync-logs-store";
 
 const FALLBACK_KEY_RATE_PERCENT = 21;
 
@@ -96,7 +98,8 @@ export async function syncKeyRateFromCbr(): Promise<{
   saved: boolean;
 }> {
   try {
-    const response = await fetch("https://www.cbr.ru/hd_base/keyrate/", {
+    const sourceUrl = await readCbrKeyRateUrl();
+    const response = await fetch(sourceUrl, {
       cache: "no-store",
       headers: {
         "user-agent": "FinanceAndTravelTips/1.0 (+https://www.fcalc.app)",
@@ -124,15 +127,31 @@ export async function syncKeyRateFromCbr(): Promise<{
   }
 }
 
-export async function syncKeyRateFromCbrAndSave(): Promise<{
+export async function syncKeyRateFromCbrAndSave(options?: {
+  triggerSource?: string;
+}): Promise<{
   ok: boolean;
   inserted: boolean;
   rate: number | null;
   date: string | null;
   saved: boolean;
 }> {
+  const sourceUrl = await readCbrKeyRateUrl();
+  const triggerSource = options?.triggerSource?.trim() || "unknown";
+
   const synced = await syncKeyRateFromCbr();
-  if (!synced.ok || synced.rate == null || synced.date == null) return synced;
+  if (!synced.ok || synced.rate == null || synced.date == null) {
+    await appendSyncLog({
+      syncKind: "key_rate",
+      status: "error",
+      source: sourceUrl,
+      triggerSource,
+      rate: synced.rate,
+      effectiveDate: synced.date,
+      errorMessage: "Не удалось получить ставку с сайта ЦБ",
+    });
+    return synced;
+  }
 
   const status = await insertSettingsRateIfMissing({
     parameter: "key_rate",
@@ -140,6 +159,15 @@ export async function syncKeyRateFromCbrAndSave(): Promise<{
     rate: synced.rate,
   });
   if (status === "error") {
+    await appendSyncLog({
+      syncKind: "key_rate",
+      status: "error",
+      source: sourceUrl,
+      triggerSource,
+      rate: synced.rate,
+      effectiveDate: synced.date,
+      errorMessage: "Не удалось сохранить ставку в БД",
+    });
     return {
       ok: false,
       inserted: false,
@@ -149,9 +177,21 @@ export async function syncKeyRateFromCbrAndSave(): Promise<{
     };
   }
 
+  const inserted = status === "inserted";
+  await appendSyncLog({
+    syncKind: "key_rate",
+    status: "success",
+    source: sourceUrl,
+    triggerSource,
+    insertedCount: inserted ? 1 : 0,
+    rate: synced.rate,
+    effectiveDate: synced.date,
+    details: { saved: true, duplicate: status === "exists" },
+  });
+
   return {
     ok: true,
-    inserted: status === "inserted",
+    inserted,
     rate: synced.rate,
     date: synced.date,
     saved: true,

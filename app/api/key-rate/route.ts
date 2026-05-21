@@ -31,7 +31,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = saveToDb ? await syncKeyRateFromCbrAndSave() : await syncKeyRateFromCbr();
+  const result = saveToDb
+    ? await syncKeyRateFromCbrAndSave({ triggerSource: "admin" })
+    : await syncKeyRateFromCbr();
   if (!result.ok) {
     return NextResponse.json(
       {

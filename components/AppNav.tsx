@@ -26,6 +26,10 @@ const navSections = [
     ],
   },
   {
+    key: "deposits",
+    links: [{ href: "/deposits/special-offers", key: "deposits_special_offers" as const }],
+  },
+  {
     key: "real_estate",
     links: [
       { href: "/mortgage-sale", key: "mortgage_sale" as const },
@@ -156,12 +160,18 @@ export default function AppNav() {
     credits: tr("Кредиты", "Credits"),
     real_estate: tr("Недвижимость", "Real Estate"),
     basic: tr("Базовые вещи", "Core Tools"),
+    deposits: tr("Вклады", "Deposits"),
     docs: tr("Техническая документация", "Technical Documentation"),
     admin: tr("Администрирование", "Administration"),
   };
 
   const linkLabels: Record<
-    CalculatorInfoKey | "api_docs" | "mcp_docs" | "admin_settings" | "key_rate",
+    | CalculatorInfoKey
+    | "api_docs"
+    | "mcp_docs"
+    | "admin_settings"
+    | "key_rate"
+    | "deposits_special_offers",
     string
   > = {
     early_repay: tr(
@@ -192,6 +202,7 @@ export default function AppNav() {
     ),
     loan: tr("Кредитный калькулятор", "Loan Calculator"),
     key_rate: tr("Ключевая ставка ЦБ", "CB Key Rate"),
+    deposits_special_offers: tr("Спецпредложения", "Special Offers"),
     api_docs: tr("Описание API", "API Overview"),
     mcp_docs: tr("MCP сервер", "MCP Server"),
     admin_settings: tr("Настройки параметров", "Parameter Settings"),
@@ -273,7 +284,8 @@ export default function AppNav() {
                     key !== "api_docs" &&
                     key !== "mcp_docs" &&
                     key !== "admin_settings" &&
-                    key !== "key_rate";
+                    key !== "key_rate" &&
+                    key !== "deposits_special_offers";
                   return (
                     <div
                       key={href}

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const result = await syncKeyRateFromCbrAndSave();
+  const result = await syncKeyRateFromCbrAndSave({ triggerSource: "cron" });
   if (!result.ok) {
     return NextResponse.json(
       {
