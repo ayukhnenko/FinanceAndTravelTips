@@ -301,7 +301,6 @@ export default function DepositsSpecialOffersPage() {
               </div>
 
               <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-
                 <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
                   Порог (годовой эквивалент)
                 </dt>
@@ -318,7 +317,7 @@ export default function DepositsSpecialOffersPage() {
 
                     onChange={(e) => handleThresholdChange(e.target.value)}
 
-                    className="field-input w-full tabular-nums"
+                    className="field-input w-full bg-[var(--card)] tabular-nums"
 
                     placeholder="например 15,00"
 
