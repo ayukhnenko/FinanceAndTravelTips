@@ -80,9 +80,8 @@ export default function DepositsSpecialOffersPage() {
 
   const [data, setData] = useState<SpecialOffersPayload | null>(null);
 
-  const [thresholdInput, setThresholdInput] = useState("");
-
-  const [rateThreshold, setRateThreshold] = useState<number | null>(null);
+  const [thresholdInput, setThresholdInput] = useState("0");
+  const [rateThreshold, setRateThreshold] = useState<number | null>(0);
 
 
 
@@ -134,29 +133,11 @@ export default function DepositsSpecialOffersPage() {
 
 
 
-        const defaultThreshold = payload.inclusionThreshold
+        setThresholdInput("0");
 
-          ? parseDepositPercentText(payload.inclusionThreshold)
+        setRateThreshold(0);
 
-          : null;
-
-        if (defaultThreshold != null) {
-
-          const defaultInput = defaultThreshold.toLocaleString("ru-RU", {
-
-            minimumFractionDigits: 2,
-
-            maximumFractionDigits: 2,
-
-          });
-
-          setThresholdInput(defaultInput);
-
-          setRateThreshold(defaultThreshold);
-
-          writeStoredThresholdInput(defaultInput);
-
-        }
+        writeStoredThresholdInput("0");
 
       } catch {
 
@@ -198,9 +179,7 @@ export default function DepositsSpecialOffersPage() {
 
     setThresholdInput(value);
 
-    const parsed = parseDepositPercentText(value);
-
-    setRateThreshold(parsed);
+    setRateThreshold(parseDepositPercentText(value));
 
     writeStoredThresholdInput(value);
 
