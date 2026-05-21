@@ -1,5 +1,5 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
-import { supabaseRestDelete, supabaseRestInsert } from "@/lib/supabase-rest";
+import { supabaseRestDelete, supabaseRestInsert, type SupabaseRestFilter } from "@/lib/supabase-rest";
 
 export type DepositOfferRow = {
   sortOrder: number;
@@ -58,21 +58,6 @@ function resolveDepositSourceFilter(dataSource: string): DepositSourceFilter | n
     source,
     spreadsheetId: extractGoogleSpreadsheetId(source),
   };
-}
-
-type StringFilterQuery<T> = {
-  like(column: string, pattern: string): T;
-  eq(column: string, value: string): T;
-};
-
-function applyDepositSourceFilter<T extends StringFilterQuery<T>>(
-  query: T,
-  filter: DepositSourceFilter
-): T {
-  if (filter.spreadsheetId) {
-    return query.like("data_source", `%/d/${filter.spreadsheetId}/%`);
-  }
-  return query.eq("data_source", filter.source);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -162,10 +147,10 @@ function toDbInsertRow(offer: DepositOfferRow, syncedAt: string, dataSource: str
 function buildDepositSourceRestFilters(
   filter: DepositSourceFilter,
   options?: { syncedAt?: string; excludeSyncedAt?: string }
-) {
-  const filters = filter.spreadsheetId
-    ? [{ column: "data_source", operator: "like" as const, value: `%/d/${filter.spreadsheetId}/%` }]
-    : [{ column: "data_source", operator: "eq" as const, value: filter.source }];
+): SupabaseRestFilter[] {
+  const filters: SupabaseRestFilter[] = filter.spreadsheetId
+    ? [{ column: "data_source", operator: "like", value: `%/d/${filter.spreadsheetId}/%` }]
+    : [{ column: "data_source", operator: "eq", value: filter.source }];
 
   if (options?.syncedAt) {
     filters.push({ column: "synced_at", operator: "eq", value: options.syncedAt });
@@ -279,17 +264,16 @@ export async function readDepositOffers(
   const supabase = getSupabaseAdminClient();
   if (!supabase) return [];
   try {
-    const response = await withTimeout(
-      applyDepositSourceFilter(
-        supabase
-          .from("app_deposit_offers")
-          .select(DEPOSIT_OFFER_LIST_COLUMNS)
-          .order("sort_order", { ascending: true })
-          .limit(limit),
-        filter
-      ).then((r) => r),
-      OFFERS_TIMEOUT_MS
-    );
+    let query = supabase
+      .from("app_deposit_offers")
+      .select(DEPOSIT_OFFER_LIST_COLUMNS)
+      .order("sort_order", { ascending: true })
+      .limit(limit);
+    query = filter.spreadsheetId
+      ? query.like("data_source", `%/d/${filter.spreadsheetId}/%`)
+      : query.eq("data_source", filter.source);
+
+    const response = await withTimeout(query.then((r) => r), OFFERS_TIMEOUT_MS);
     if (response.error) {
       console.error("[deposit-offers] readDepositOffers:", response.error);
       return [];
@@ -308,13 +292,14 @@ export async function countDepositOffers(dataSource: string): Promise<number> {
   const supabase = getSupabaseAdminClient();
   if (!supabase) return 0;
   try {
-    const response = await withTimeout(
-      applyDepositSourceFilter(
-        supabase.from("app_deposit_offers").select("id", { count: "exact", head: true }),
-        filter
-      ).then((r) => r),
-      OFFERS_TIMEOUT_MS
-    );
+    let query = supabase
+      .from("app_deposit_offers")
+      .select("id", { count: "exact", head: true });
+    query = filter.spreadsheetId
+      ? query.like("data_source", `%/d/${filter.spreadsheetId}/%`)
+      : query.eq("data_source", filter.source);
+
+    const response = await withTimeout(query.then((r) => r), OFFERS_TIMEOUT_MS);
     if (response.error) {
       console.error("[deposit-offers] countDepositOffers:", response.error);
       return 0;
