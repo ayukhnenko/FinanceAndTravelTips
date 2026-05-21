@@ -7,6 +7,7 @@ import {
   formatDurationMs,
   readDurationMsFromDetails,
 } from "@/lib/deposits-sync-format";
+import StandPrefixedTitle from "@/components/StandPrefixedTitle";
 
 type Row = {
   parameter: string;
@@ -433,7 +434,7 @@ export default function AdminSettingsPage() {
     <div className="mx-auto max-w-5xl p-5 md:p-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--foreground)]">Администрирование настроек</h1>
+          <StandPrefixedTitle title="Администрирование настроек" />
           <p className="mt-1 text-sm text-[var(--muted)]">
             Параметры источников данных, ставки и загрузки вкладов
           </p>

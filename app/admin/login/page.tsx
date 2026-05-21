@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import StandPrefixedTitle from "@/components/StandPrefixedTitle";
 
 function AdminLoginForm() {
   const searchParams = useSearchParams();
@@ -13,7 +14,7 @@ function AdminLoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="card-panel w-full max-w-md space-y-5">
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">Вход в админ-панель</h1>
+        <StandPrefixedTitle title="Вход в админ-панель" />
 
         {sessionExpired && !error ? (
           <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
