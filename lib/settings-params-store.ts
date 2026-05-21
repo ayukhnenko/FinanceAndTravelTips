@@ -1,8 +1,16 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
+import {
+  DEFAULT_TOPBANKI_DEPOSITS_URL,
+  TOPBANKI_DEPOSITS_SOURCE_KEY,
+} from "@/lib/deposits-topbanki-config";
+import { formatTopbankiComparisonSumFromUrl } from "@/lib/deposits-topbanki-sum";
+
 export const CBR_KEY_RATE_URL_PARAM = "cbr_key_rate_url";
 export const DEPOSITS_SHEET_URL_PARAM = "deposits_sheet_url";
+export const DEPOSITS_TOPBANKI_URL_PARAM = "deposits_topbanki_url";
 export const DEPOSITS_LAST_SYNCED_AT_PARAM = "deposits_last_synced_at";
+export const DEPOSITS_TOPBANKI_LAST_SYNCED_AT_PARAM = "deposits_topbanki_last_synced_at";
 export const DEPOSITS_SHEET_CHANGED_AT_PARAM = "deposits_sheet_changed_at";
 export const DEPOSITS_INCLUSION_THRESHOLD_PARAM = "deposits_inclusion_threshold";
 
@@ -33,6 +41,13 @@ export const EDITABLE_APP_SETTINGS: EditableAppSettingDefinition[] = [
     label: "URL Google-таблицы вкладов",
     description: "Таблица с предложениями по вкладам для загрузки в БД",
     defaultValue: DEFAULT_DEPOSITS_SHEET_URL,
+  },
+  {
+    parameter: DEPOSITS_TOPBANKI_URL_PARAM,
+    label: "URL Topbanki (макс. ставки)",
+    description:
+      "Страница topbanki.ru с total_flag=1 — раздел «Максимальные проценты по вкладам»",
+    defaultValue: DEFAULT_TOPBANKI_DEPOSITS_URL,
   },
 ];
 
@@ -198,18 +213,29 @@ export async function readDepositsSheetUrl(): Promise<string> {
   return trimmed || DEFAULT_DEPOSITS_SHEET_URL;
 }
 
+export async function readDepositsTopbankiUrl(): Promise<string> {
+  const stored = await readSettingsParam(DEPOSITS_TOPBANKI_URL_PARAM);
+  const trimmed = stored?.trim();
+  return trimmed || DEFAULT_TOPBANKI_DEPOSITS_URL;
+}
+
 export type DepositsPublicSettings = {
   sheetUrl: string;
+  topbankiUrl: string;
   lastSyncedAt: string | null;
+  topbankiLastSyncedAt: string | null;
   sheetChangedAt: string | null;
   inclusionThreshold: string | null;
+  topbankiComparisonSumText: string;
 };
 
 export async function readDepositsPublicSettings(): Promise<DepositsPublicSettings> {
   const supabase = getSupabaseAdminClient();
   const parameters = [
     DEPOSITS_SHEET_URL_PARAM,
+    DEPOSITS_TOPBANKI_URL_PARAM,
     DEPOSITS_LAST_SYNCED_AT_PARAM,
+    DEPOSITS_TOPBANKI_LAST_SYNCED_AT_PARAM,
     DEPOSITS_SHEET_CHANGED_AT_PARAM,
     DEPOSITS_INCLUSION_THRESHOLD_PARAM,
   ];
@@ -217,9 +243,12 @@ export async function readDepositsPublicSettings(): Promise<DepositsPublicSettin
   if (!supabase) {
     return {
       sheetUrl: DEFAULT_DEPOSITS_SHEET_URL,
+      topbankiUrl: DEFAULT_TOPBANKI_DEPOSITS_URL,
       lastSyncedAt: null,
+      topbankiLastSyncedAt: null,
       sheetChangedAt: null,
       inclusionThreshold: null,
+      topbankiComparisonSumText: formatTopbankiComparisonSumFromUrl(DEFAULT_TOPBANKI_DEPOSITS_URL),
     };
   }
 
@@ -236,9 +265,12 @@ export async function readDepositsPublicSettings(): Promise<DepositsPublicSettin
       console.error("[settings-params] readDepositsPublicSettings:", response.error);
       return {
         sheetUrl: DEFAULT_DEPOSITS_SHEET_URL,
+        topbankiUrl: DEFAULT_TOPBANKI_DEPOSITS_URL,
         lastSyncedAt: null,
+        topbankiLastSyncedAt: null,
         sheetChangedAt: null,
         inclusionThreshold: null,
+        topbankiComparisonSumText: formatTopbankiComparisonSumFromUrl(DEFAULT_TOPBANKI_DEPOSITS_URL),
       };
     }
 
@@ -250,19 +282,27 @@ export async function readDepositsPublicSettings(): Promise<DepositsPublicSettin
     }
 
     const sheetUrl = values.get(DEPOSITS_SHEET_URL_PARAM)?.trim() || DEFAULT_DEPOSITS_SHEET_URL;
+    const topbankiUrl =
+      values.get(DEPOSITS_TOPBANKI_URL_PARAM)?.trim() || DEFAULT_TOPBANKI_DEPOSITS_URL;
     return {
       sheetUrl,
+      topbankiUrl,
       lastSyncedAt: values.get(DEPOSITS_LAST_SYNCED_AT_PARAM) ?? null,
+      topbankiLastSyncedAt: values.get(DEPOSITS_TOPBANKI_LAST_SYNCED_AT_PARAM) ?? null,
       sheetChangedAt: values.get(DEPOSITS_SHEET_CHANGED_AT_PARAM) ?? null,
       inclusionThreshold: values.get(DEPOSITS_INCLUSION_THRESHOLD_PARAM) ?? null,
+      topbankiComparisonSumText: formatTopbankiComparisonSumFromUrl(topbankiUrl),
     };
   } catch (err) {
     console.error("[settings-params] readDepositsPublicSettings:", err);
     return {
       sheetUrl: DEFAULT_DEPOSITS_SHEET_URL,
+      topbankiUrl: DEFAULT_TOPBANKI_DEPOSITS_URL,
       lastSyncedAt: null,
+      topbankiLastSyncedAt: null,
       sheetChangedAt: null,
       inclusionThreshold: null,
+      topbankiComparisonSumText: formatTopbankiComparisonSumFromUrl(DEFAULT_TOPBANKI_DEPOSITS_URL),
     };
   }
 }

@@ -1,4 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { getDepositOfferRatePercent } from "@/lib/deposit-offers-format";
+import { TOPBANKI_DEPOSITS_SOURCE_KEY } from "@/lib/deposits-topbanki-config";
 import { supabaseRestDelete, supabaseRestInsert, type SupabaseRestFilter } from "@/lib/supabase-rest";
 
 export type DepositOfferRow = {
@@ -283,6 +285,27 @@ export async function readDepositOffers(
     console.error("[deposit-offers] readDepositOffers:", err);
     return [];
   }
+}
+
+export async function readMergedDepositOffers(options: {
+  sheetUrl: string;
+  limitPerSource?: number;
+}): Promise<DepositOfferRecord[]> {
+  const limitPerSource = options.limitPerSource ?? 200;
+  const [sheetOffers, topbankiOffers] = await Promise.all([
+    readDepositOffers(options.sheetUrl, limitPerSource),
+    readDepositOffers(TOPBANKI_DEPOSITS_SOURCE_KEY, limitPerSource),
+  ]);
+
+  const merged = [...sheetOffers, ...topbankiOffers];
+  merged.sort((a, b) => {
+    const left = getDepositOfferRatePercent(a) ?? -1;
+    const right = getDepositOfferRatePercent(b) ?? -1;
+    if (right !== left) return right - left;
+    return a.sortOrder - b.sortOrder;
+  });
+
+  return merged.map((offer, index) => ({ ...offer, sortOrder: index + 1 }));
 }
 
 export async function countDepositOffers(dataSource: string): Promise<number> {

@@ -41,11 +41,14 @@ type CronSettings = {
 
 type DepositsSettings = {
   sheetUrl: string;
+  topbankiUrl: string;
   spreadsheetId: string | null;
   lastSyncedAt: string | null;
+  topbankiLastSyncedAt: string | null;
   sheetChangedAt: string | null;
   inclusionThreshold: string | null;
   offerCount: number;
+  topbankiOfferCount: number;
 };
 
 type AppSettingRow = {
@@ -208,6 +211,7 @@ export default function AdminSettingsPage() {
   const [appParamsMessage, setAppParamsMessage] = useState<string | null>(null);
   const [deposits, setDeposits] = useState<DepositsSettings | null>(null);
   const [syncingDeposits, setSyncingDeposits] = useState(false);
+  const [syncingTopbankiDeposits, setSyncingTopbankiDeposits] = useState(false);
   const [depositsMessage, setDepositsMessage] = useState<string | null>(null);
   const [syncLogs, setSyncLogs] = useState<SyncLogRow[]>([]);
 
@@ -338,49 +342,85 @@ export default function AdminSettingsPage() {
     );
   }
 
-  async function syncDepositsFromSheet() {
+  async function syncDeposits(source: "sheet" | "topbanki") {
     setDepositsMessage(null);
-    setSyncingDeposits(true);
+    const setSyncing = source === "topbanki" ? setSyncingTopbankiDeposits : setSyncingDeposits;
+    setSyncing(true);
     try {
-      const resp = await fetch("/api/admin/deposits", { method: "POST" });
+      const resp = await fetch("/api/admin/deposits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source }),
+      });
       const data = (await resp.json().catch(() => ({}))) as DepositsSettings & {
         ok?: boolean;
+        source?: "sheet" | "topbanki";
         inserted?: number;
         durationMs?: number;
         timings?: {
           fetchSheetMs?: number;
+          fetchMs?: number;
           parseMs?: number;
           saveDbMs?: number;
           settingsMs?: number;
           totalMs?: number;
         };
         error?: string;
-        meta?: { changedAt?: string | null; inclusionThreshold?: string | null };
+        meta?: {
+          changedAt?: string | null;
+          inclusionThreshold?: string | null;
+          updatedAt?: string | null;
+          totalListed?: number | null;
+          bankCount?: number | null;
+          comparisonSumText?: string | null;
+        };
       };
       if (!resp.ok || !data.ok) {
         const durationText =
           data.durationMs != null ? ` Затрачено: ${formatDurationMs(data.durationMs)}.` : "";
-        setDepositsMessage((data.error ?? "Не удалось загрузить таблицу вкладов") + durationText);
+        setDepositsMessage(
+          (data.error ??
+            (source === "topbanki"
+              ? "Не удалось загрузить Topbanki"
+              : "Не удалось загрузить таблицу вкладов")) + durationText
+        );
         await reloadAdminData();
         return;
       }
       setDeposits(data);
-      const changedAt = data.meta?.changedAt ?? data.sheetChangedAt;
-      const threshold = data.meta?.inclusionThreshold ?? data.inclusionThreshold;
-      setDepositsMessage(
-        `Загружено предложений: ${data.inserted ?? data.offerCount ?? 0}.` +
-          (changedAt ? ` Дата изменения в таблице: ${changedAt}.` : "") +
-          (threshold ? ` Порог: ${threshold}.` : "") +
-          (data.durationMs != null
-            ? ` Затрачено: ${formatDurationMs(data.durationMs)}${formatDepositsSyncTimings(data.timings)}.`
-            : "")
-      );
+      if (source === "topbanki") {
+        const updatedAt = data.meta?.updatedAt;
+        const bankCount = data.meta?.bankCount;
+        setDepositsMessage(
+          `Topbanki: загружено ${data.inserted ?? data.topbankiOfferCount ?? 0} ставок` +
+            (bankCount != null ? ` по ${bankCount} банкам` : "") +
+            " из таблицы макс. процентов." +
+            (data.meta?.comparisonSumText ? ` Сумма сравнения: ${data.meta.comparisonSumText}.` : "") +
+            (updatedAt ? ` Данные на сайте: ${updatedAt}.` : "") +
+            (data.durationMs != null ? ` Затрачено: ${formatDurationMs(data.durationMs)}.` : "")
+        );
+      } else {
+        const changedAt = data.meta?.changedAt ?? data.sheetChangedAt;
+        const threshold = data.meta?.inclusionThreshold ?? data.inclusionThreshold;
+        setDepositsMessage(
+          `Google Sheets: загружено ${data.inserted ?? data.offerCount ?? 0} предложений.` +
+            (changedAt ? ` Дата изменения в таблице: ${changedAt}.` : "") +
+            (threshold ? ` Порог: ${threshold}.` : "") +
+            (data.durationMs != null
+              ? ` Затрачено: ${formatDurationMs(data.durationMs)}${formatDepositsSyncTimings(data.timings)}.`
+              : "")
+        );
+      }
       await reloadAdminData();
     } catch {
-      setDepositsMessage("Не удалось загрузить таблицу вкладов");
+      setDepositsMessage(
+        source === "topbanki"
+          ? "Не удалось загрузить Topbanki"
+          : "Не удалось загрузить таблицу вкладов"
+      );
       await reloadAdminData();
     } finally {
-      setSyncingDeposits(false);
+      setSyncing(false);
     }
   }
 
@@ -567,11 +607,11 @@ export default function AdminSettingsPage() {
       <div className="card-panel mt-6 overflow-x-auto">
         <div className="mb-3">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">
-            Вклады: Google Sheets
+            Вклады: источники данных
           </h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Загрузка сохраняет предложения по вкладам в Supabase. URL таблицы — в параметрах выше.
-            В журнале загрузок указывается источник запуска: администратор или cron.
+            Google Sheets и Topbanki сохраняются в одну таблицу БД с разными источниками.
+            Topbanki загружает таблицу «Максимальные проценты по вкладам».
           </p>
         </div>
 
@@ -579,42 +619,48 @@ export default function AdminSettingsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={syncDepositsFromSheet}
-              disabled={syncingDeposits}
+              onClick={() => syncDeposits("sheet")}
+              disabled={syncingDeposits || syncingTopbankiDeposits}
               className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 disabled:opacity-60"
             >
               {syncingDeposits ? "Загрузка..." : "Загрузить из Google Sheets"}
             </button>
+            <button
+              type="button"
+              onClick={() => syncDeposits("topbanki")}
+              disabled={syncingDeposits || syncingTopbankiDeposits}
+              className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 disabled:opacity-60"
+            >
+              {syncingTopbankiDeposits ? "Загрузка..." : "Загрузить из Topbanki"}
+            </button>
           </div>
 
           {deposits ? (
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">В БД</dt>
+                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">Google Sheets в БД</dt>
                 <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
                   {deposits.offerCount.toLocaleString("ru-RU")} предложений
                 </dd>
+                <dd className="mt-1 text-xs text-[var(--muted)] tabular-nums">
+                  Загружено: {formatDateTimeMoscow(deposits.lastSyncedAt)}
+                </dd>
               </div>
               <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Загружено (MSK)
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-[var(--foreground)] tabular-nums">
-                  {formatDateTimeMoscow(deposits.lastSyncedAt)}
+                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">Topbanki в БД</dt>
+                <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+                  {deposits.topbankiOfferCount.toLocaleString("ru-RU")} предложений
+                </dd>
+                <dd className="mt-1 text-xs text-[var(--muted)] tabular-nums">
+                  Загружено: {formatDateTimeMoscow(deposits.topbankiLastSyncedAt)}
                 </dd>
               </div>
               <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
                 <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Дата в таблице
+                  Дата в таблице / порог
                 </dt>
                 <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
-                  {deposits.sheetChangedAt ?? "—"}
-                </dd>
-              </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">Порог</dt>
-                <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
-                  {deposits.inclusionThreshold ?? "—"}
+                  {deposits.sheetChangedAt ?? "—"} · {deposits.inclusionThreshold ?? "—"}
                 </dd>
               </div>
             </dl>
@@ -627,7 +673,7 @@ export default function AdminSettingsPage() {
           {depositsCron ? (
             <CronSchedulePanel
               title="Cron: синхронизация вкладов"
-              subtitle="Автоматический запуск той же функции, что и кнопка «Загрузить из Google Sheets»."
+              subtitle="Автоматический запуск загрузки из Google Sheets и Topbanki (те же функции, что и кнопки выше)."
               cron={depositsCron}
             />
           ) : null}

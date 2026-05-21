@@ -27,7 +27,10 @@ const navSections = [
   },
   {
     key: "deposits",
-    links: [{ href: "/deposits/special-offers", key: "deposits_special_offers" as const }],
+    links: [
+      { href: "/deposits/special-offers", key: "deposits_special_offers" as const },
+      { href: "/deposits/best-offers", key: "deposits_best_offers" as const },
+    ],
   },
   {
     key: "real_estate",
@@ -171,7 +174,8 @@ export default function AppNav() {
     | "mcp_docs"
     | "admin_settings"
     | "key_rate"
-    | "deposits_special_offers",
+    | "deposits_special_offers"
+    | "deposits_best_offers",
     string
   > = {
     early_repay: tr(
@@ -203,6 +207,7 @@ export default function AppNav() {
     loan: tr("Кредитный калькулятор", "Loan Calculator"),
     key_rate: tr("Ключевая ставка ЦБ", "CB Key Rate"),
     deposits_special_offers: tr("Спецпредложения", "Special Offers"),
+    deposits_best_offers: tr("Лучшие предложения", "Best Offers"),
     api_docs: tr("Описание API", "API Overview"),
     mcp_docs: tr("MCP сервер", "MCP Server"),
     admin_settings: tr("Настройки параметров", "Parameter Settings"),
@@ -285,7 +290,8 @@ export default function AppNav() {
                     key !== "mcp_docs" &&
                     key !== "admin_settings" &&
                     key !== "key_rate" &&
-                    key !== "deposits_special_offers";
+                    key !== "deposits_special_offers" &&
+                    key !== "deposits_best_offers";
                   return (
                     <div
                       key={href}

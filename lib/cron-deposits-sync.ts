@@ -15,7 +15,7 @@ export const DEPOSITS_CRON_JOBS: DepositsCronJob[] = [
     id: "daily-morning",
     scheduleUtc: "0 4 * * *",
     timeMoscow: "07:00",
-    description: "Синхронизация вкладов из Google Sheets (ежедневно)",
+    description: "Синхронизация вкладов из Google Sheets и Topbanki (ежедневно)",
   },
 ];
 

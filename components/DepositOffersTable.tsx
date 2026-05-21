@@ -87,7 +87,7 @@ export default function DepositOffersTable({ offers, emptyMessage }: Props) {
               {offer.minAmountThousands ? `${offer.minAmountThousands} т.р.` : "—"}
             </td>
             <td className="max-w-0 break-words px-2 py-2 tabular-nums">
-              {offer.maxAmountText || "—"}
+              {offer.maxAmountText || ""}
             </td>
             <td className="max-w-0 break-words px-2 py-2 text-sm leading-snug text-[var(--muted)]">
               {offer.conditions || "—"}
