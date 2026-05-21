@@ -13,8 +13,8 @@ export type KeyRateCronJob = {
 export const KEY_RATE_CRON_JOBS: KeyRateCronJob[] = [
   {
     id: "weekday-morning",
-    scheduleUtc: "0 3 * * 1-5",
-    timeMoscow: "06:00",
+    scheduleUtc: "0 7 * * 1-5",
+    timeMoscow: "10:00",
     description: "Синхронизация ставки ЦБ по будням (пн–пт)",
   },
 ];
