@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import DepositOffersTable, {
   type DepositOfferViewRow,
@@ -28,6 +29,10 @@ type Props = {
   source: "sheet" | "topbanki";
   exportFilenameStem: string;
 };
+
+function ToolbarDivider() {
+  return <span className="hidden text-[var(--border)] sm:inline" aria-hidden>·</span>;
+}
 
 function readStoredThresholdInput(storageKey: string): string | null {
   if (typeof window === "undefined") return null;
@@ -177,62 +182,61 @@ export default function DepositsOffersPage({
         ) : error ? (
           <p className="text-sm text-rose-700">{error}</p>
         ) : data ? (
-          <div className="space-y-4">
-            <dl
-              className={`grid gap-3 sm:grid-cols-2 ${source === "topbanki" ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}
-            >
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Предложений
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--border)] pb-3 text-sm">
+              <span className="text-[var(--muted)]">
+                Предложений:{" "}
+                <span className="font-medium text-[var(--foreground)] tabular-nums">
                   {offerCountLabel}
-                </dd>
-              </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Обновлено (MSK)
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-[var(--foreground)] tabular-nums">
+                </span>
+              </span>
+              <ToolbarDivider />
+              <span className="text-[var(--muted)]">
+                Обновлено:{" "}
+                <span className="font-medium text-[var(--foreground)] tabular-nums whitespace-nowrap">
                   {formatDateTimeMoscow(data.lastSyncedAt)}
-                </dd>
-              </div>
+                </span>
+              </span>
               {source === "sheet" ? (
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                  <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                    В таблице ставки выше
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
-                    {data.inclusionThreshold ?? "—"}
-                  </dd>
-                </div>
+                <>
+                  <ToolbarDivider />
+                  <span className="text-[var(--muted)]">
+                    Ставки выше:{" "}
+                    <span className="font-medium text-[var(--foreground)]">
+                      {data.inclusionThreshold ?? "—"}
+                    </span>
+                  </span>
+                </>
               ) : null}
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Минимальный процент
-                </dt>
-                <dd className="mt-1">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={thresholdInput}
-                    onChange={(e) => handleThresholdChange(e.target.value)}
-                    className="field-input w-full bg-[var(--card)] tabular-nums"
-                    placeholder="например 15,00"
-                    aria-label="Минимальный процент для фильтрации предложений"
-                  />
-                </dd>
-              </div>
-            </dl>
-
-            <div className="flex justify-end">
+              <ToolbarDivider />
+              <label className="flex items-center gap-1.5 text-[var(--muted)]">
+                Мин. %
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={thresholdInput}
+                  onChange={(e) => handleThresholdChange(e.target.value)}
+                  className="field-input h-8 w-[4.5rem] bg-[var(--card)] px-2 py-1 text-sm tabular-nums"
+                  placeholder="0"
+                  aria-label="Минимальный процент для фильтрации предложений"
+                />
+              </label>
               <button
                 type="button"
                 onClick={() => void handleExportXlsx()}
                 disabled={filteredOffers.length === 0 || exporting}
-                className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Выгрузить в XLSX"
+                aria-label="Выгрузить в XLSX"
+                className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--input-bg)] transition hover:border-[var(--accent)]/40 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {exporting ? "Выгрузка..." : "Выгрузить в XLSX"}
+                <Image
+                  src="/icons/xlsx-icon.png"
+                  alt=""
+                  width={18}
+                  height={18}
+                  className={exporting ? "animate-pulse opacity-70" : ""}
+                  aria-hidden
+                />
               </button>
             </div>
 
