@@ -7,6 +7,7 @@ export default function DepositsBestOffersPage() {
       apiPath="/api/deposits/best-offers"
       thresholdStorageKey="deposits-best-offers-rate-threshold"
       source="topbanki"
+      exportFilenameStem="deposits-best-offers"
     />
   );
 }

@@ -7,6 +7,7 @@ export default function DepositsSpecialOffersPage() {
       apiPath="/api/deposits/special-offers"
       thresholdStorageKey="deposits-special-offers-rate-threshold"
       source="sheet"
+      exportFilenameStem="deposits-special-offers"
     />
   );
 }

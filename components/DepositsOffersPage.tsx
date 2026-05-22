@@ -10,6 +10,7 @@ import {
   formatDepositPercent,
   parseDepositPercentText,
 } from "@/lib/deposit-offers-format";
+import { downloadDepositOffersXlsx } from "@/lib/deposit-offers-xlsx";
 
 export type DepositsOffersPayload = {
   offerCount: number;
@@ -25,6 +26,7 @@ type Props = {
   apiPath: string;
   thresholdStorageKey: string;
   source: "sheet" | "topbanki";
+  exportFilenameStem: string;
 };
 
 function readStoredThresholdInput(storageKey: string): string | null {
@@ -84,12 +86,14 @@ export default function DepositsOffersPage({
   apiPath,
   thresholdStorageKey,
   source,
+  exportFilenameStem,
 }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DepositsOffersPayload | null>(null);
   const [thresholdInput, setThresholdInput] = useState("0");
   const [rateThreshold, setRateThreshold] = useState<number | null>(0);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,6 +145,16 @@ export default function DepositsOffersPage({
     setThresholdInput(value);
     setRateThreshold(parseDepositPercentText(value));
     writeStoredThresholdInput(thresholdStorageKey, value);
+  }
+
+  async function handleExportXlsx() {
+    if (filteredOffers.length === 0) return;
+    setExporting(true);
+    try {
+      await downloadDepositOffersXlsx(filteredOffers, exportFilenameStem);
+    } finally {
+      setExporting(false);
+    }
   }
 
   const offerCountLabel =
@@ -210,6 +224,17 @@ export default function DepositsOffersPage({
                 </dd>
               </div>
             </dl>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => void handleExportXlsx()}
+                disabled={filteredOffers.length === 0 || exporting}
+                className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {exporting ? "Выгрузка..." : "Выгрузить в XLSX"}
+              </button>
+            </div>
 
             <DepositOffersTable
               offers={filteredOffers}
