@@ -125,6 +125,30 @@ function shortenSource(source: string, max = 48): string {
   return `${text.slice(0, max - 1)}…`;
 }
 
+function AppParamFields({
+  row,
+  onChange,
+}: {
+  row: AppSettingRow;
+  onChange: (parameter: string, value: string) => void;
+}) {
+  return (
+    <>
+      <div className="text-sm font-medium leading-snug text-[var(--foreground)]">{row.label}</div>
+      <div className="mt-1 break-all font-mono text-xs leading-snug text-[var(--muted)]">
+        {row.parameter}
+      </div>
+      <p className="mt-2 text-xs leading-snug text-[var(--muted)]">{row.description}</p>
+      <input
+        type="url"
+        value={row.value}
+        onChange={(e) => onChange(row.parameter, e.target.value)}
+        className="field-input mt-3 w-full min-w-0 font-mono text-xs"
+      />
+    </>
+  );
+}
+
 function CronSchedulePanel({
   title,
   subtitle,
@@ -498,29 +522,42 @@ export default function AdminSettingsPage() {
           </p>
         </div>
 
-        <table className="w-full table-fixed border-collapse">
+        <div className="space-y-3 md:hidden">
+          {appParams.map((row) => (
+            <div
+              key={row.parameter}
+              className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3"
+            >
+              <AppParamFields row={row} onChange={updateAppParamValue} />
+            </div>
+          ))}
+        </div>
+
+        <table className="hidden w-full min-w-[720px] border-collapse md:table">
           <colgroup>
-            <col className="w-[14%]" />
-            <col className="w-[55%]" />
-            <col className="w-[31%]" />
+            <col className="w-[18%]" />
+            <col className="w-[47%]" />
+            <col className="w-[35%]" />
           </colgroup>
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
               <th className="px-2 py-2">Параметр</th>
               <th className="px-2 py-2">Значение</th>
-              <th className="max-w-0 px-2 py-2">Описание</th>
+              <th className="px-2 py-2">Описание</th>
             </tr>
           </thead>
           <tbody>
             {appParams.map((row) => (
               <tr key={row.parameter} className="border-b border-[var(--border)]/70 align-top">
                 <td className="px-2 py-2">
-                  <div className="text-xs font-medium leading-snug text-[var(--foreground)]">{row.label}</div>
+                  <div className="text-xs font-medium leading-snug text-[var(--foreground)]">
+                    {row.label}
+                  </div>
                   <div className="mt-1 break-all font-mono text-xs leading-snug text-[var(--muted)]">
                     {row.parameter}
                   </div>
                 </td>
-                <td className="max-w-0 px-2 py-2">
+                <td className="px-2 py-2">
                   <input
                     type="url"
                     value={row.value}
@@ -528,7 +565,7 @@ export default function AdminSettingsPage() {
                     className="field-input w-full min-w-0 font-mono text-xs"
                   />
                 </td>
-                <td className="max-w-0 break-words px-2 py-2 text-xs leading-snug text-[var(--muted)]">
+                <td className="break-words px-2 py-2 text-xs leading-snug text-[var(--muted)]">
                   {row.description}
                 </td>
               </tr>
