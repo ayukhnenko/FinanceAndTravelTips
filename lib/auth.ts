@@ -1,5 +1,3 @@
-const ADMIN_SESSION_PAYLOAD = "loan-admin-auth-v1";
-
 export function getAuthSecret(): string {
   return (
     process.env.LOAN_AUTH_SECRET ??
@@ -22,16 +20,6 @@ async function hmacSha256Hex(secret: string, data: string): Promise<string> {
     .join("");
 }
 
-export async function createAdminSessionToken(): Promise<string> {
-  return hmacSha256Hex(getAuthSecret(), ADMIN_SESSION_PAYLOAD);
-}
-
-export async function verifyAdminSessionToken(token: string): Promise<boolean> {
-  const expected = await hmacSha256Hex(getAuthSecret(), ADMIN_SESSION_PAYLOAD);
-  return timingSafeEqual(token, expected);
-}
-
-export const ADMIN_SESSION_COOKIE = "loan_admin_session";
 export const USER_SESSION_COOKIE = "loan_user_session";
 
 const USER_SESSION_PREFIX = "loan-user-auth-v1";

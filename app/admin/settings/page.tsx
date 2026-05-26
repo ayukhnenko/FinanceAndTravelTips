@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { formatDateTimeMoscow, todayIsoDateMoscow } from "@/lib/date-utils";
 import {
   formatDurationMs,
@@ -221,7 +220,6 @@ function todayIsoDate(): string {
 }
 
 export default function AdminSettingsPage() {
-  const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -242,8 +240,8 @@ export default function AdminSettingsPage() {
   const reloadDepositsData = useCallback(async (): Promise<boolean> => {
     try {
       const resp = await fetch("/api/admin/deposits", { cache: "no-store" });
-      if (resp.status === 403) {
-        window.location.assign("/admin/login?from=/admin/settings");
+      if (resp.status === 403 || resp.status === 401) {
+        window.location.assign("/account/login?from=/admin/settings");
         return false;
       }
       if (!resp.ok) return false;
@@ -253,13 +251,13 @@ export default function AdminSettingsPage() {
     } catch {
       return false;
     }
-  }, [router]);
+  }, []);
 
   const reloadAdminData = useCallback(async (): Promise<boolean> => {
     try {
       const resp = await fetch("/api/admin/settings", { cache: "no-store" });
-      if (resp.status === 403) {
-        window.location.assign("/admin/login?from=/admin/settings");
+      if (resp.status === 403 || resp.status === 401) {
+        window.location.assign("/account/login?from=/admin/settings");
         return false;
       }
       const data = (await resp.json()) as {
@@ -298,7 +296,7 @@ export default function AdminSettingsPage() {
       setError("Не удалось загрузить настройки");
       return false;
     }
-  }, [router, reloadDepositsData]);
+  }, [reloadDepositsData]);
 
   useEffect(() => {
     let mounted = true;
@@ -325,12 +323,6 @@ export default function AdminSettingsPage() {
     const otherRows = rows.filter((row) => row.parameter.trim() !== "key_rate");
     return [...keyRateRows, ...otherRows];
   }, [rows]);
-
-  async function logoutAdmin() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
-  }
 
   async function saveAppParams() {
     setAppParamsMessage(null);
@@ -496,20 +488,11 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-5 md:p-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <StandPrefixedTitle title="Администрирование настроек" />
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Параметры источников данных, ставки и загрузки вкладов
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={logoutAdmin}
-          className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--muted)] transition hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
-        >
-          Выйти из админки
-        </button>
+      <div className="mb-6">
+        <StandPrefixedTitle title="Администрирование настроек" />
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Параметры источников данных, ставки и загрузки вкладов
+        </p>
       </div>
 
       <div className="card-panel overflow-x-auto">

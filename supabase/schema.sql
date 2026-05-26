@@ -117,6 +117,7 @@ create table if not exists public.app_users (
   password_hash text not null,
   email text,
   name text,
+  is_admin boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint app_users_login_unique unique (login),
@@ -134,6 +135,9 @@ alter table public.app_users alter column phone drop not null;
 
 alter table public.app_users
   add column if not exists email_verified_at timestamptz;
+
+alter table public.app_users
+  add column if not exists is_admin boolean not null default false;
 
 create table if not exists public.app_email_verification_tokens (
   id uuid primary key default gen_random_uuid(),

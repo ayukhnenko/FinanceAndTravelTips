@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import TelegramChannelPromo from "@/components/TelegramChannelPromo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import CalculatorInfoButton from "@/components/CalculatorInfoButton";
+import AccountLogoutButton from "@/components/AccountLogoutButton";
 import { useI18n } from "@/components/I18nProvider";
 import { getPublicAppStandLabel, standLabelClassName } from "@/lib/app-branding";
 import {
@@ -88,7 +89,13 @@ const infoKeyToHref: Record<CalculatorInfoKey, string> = {
   loan: "/loan",
 };
 
-export default function AppNav() {
+export default function AppNav({
+  isAdmin = false,
+  isLoggedIn = false,
+}: {
+  isAdmin?: boolean;
+  isLoggedIn?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { tr, lang } = useI18n();
@@ -253,6 +260,7 @@ export default function AppNav() {
 
   const standLabel = getPublicAppStandLabel();
   const appTitle = tr("Калькуляторы для жизни", "Life Calculators");
+  const visibleSections = navSections.filter((section) => section.key !== "admin" || isAdmin);
 
   return (
     <>
@@ -279,7 +287,7 @@ export default function AppNav() {
 
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-visible">
           <nav className="flex flex-col gap-4 px-3 py-4">
-            {navSections.map((section) => (
+            {visibleSections.map((section) => (
               <div key={section.key} className="space-y-1">
                 <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]">
                   {sectionTitles[section.key]}
@@ -319,7 +327,11 @@ export default function AppNav() {
                       >
                         {linkLabels[key]}
                       </Link>
-                      {hasInfoButton ? (
+                      {key === "account" && isLoggedIn ? (
+                        <div className="px-1 py-2">
+                          <AccountLogoutButton variant="icon" />
+                        </div>
+                      ) : hasInfoButton ? (
                         <div className="px-1 py-2">
                           <CalculatorInfoButton
                             label={infoButtonLabel}

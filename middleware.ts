@@ -1,10 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  ADMIN_SESSION_COOKIE,
-  USER_SESSION_COOKIE,
-  verifyAdminSessionToken,
-  verifyUserSessionToken,
-} from "@/lib/auth";
+import { USER_SESSION_COOKIE, verifyUserSessionToken } from "@/lib/auth";
+import { findUserById } from "@/lib/users-store";
 
 function safeNextPath(from: string | null, fallback: string): string {
   if (from && from.startsWith("/") && !from.startsWith("//")) return from;
@@ -15,23 +11,33 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    const isAdminLoginPage = pathname === "/admin/login";
-    const isAdminLoginApi = pathname === "/api/admin/login";
-    if (isAdminLoginPage || isAdminLoginApi) {
-      return NextResponse.next();
+    if (pathname === "/admin/login" || pathname === "/api/admin/login") {
+      const loginUrl = new URL("/account/login", request.url);
+      loginUrl.searchParams.set("from", safeNextPath(`${pathname}${search}`, "/admin/settings"));
+      return NextResponse.redirect(loginUrl);
     }
 
-    const adminToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
-    const isAdmin = adminToken ? await verifyAdminSessionToken(adminToken) : false;
-    if (isAdmin) return NextResponse.next();
+    const userToken = request.cookies.get(USER_SESSION_COOKIE)?.value;
+    const userId = userToken ? await verifyUserSessionToken(userToken) : null;
 
-    if (pathname.startsWith("/api/admin")) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    if (!userId) {
+      if (pathname.startsWith("/api/admin")) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
+      const loginUrl = new URL("/account/login", request.url);
+      loginUrl.searchParams.set("from", safeNextPath(`${pathname}${search}`, "/admin/settings"));
+      return NextResponse.redirect(loginUrl);
     }
 
-    const loginUrl = new URL("/admin/login", request.url);
-    loginUrl.searchParams.set("from", `${pathname}${search}`);
-    return NextResponse.redirect(loginUrl);
+    const user = await findUserById(userId);
+    if (!user?.isAdmin) {
+      if (pathname.startsWith("/api/admin")) {
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL("/account", request.url));
+    }
+
+    return NextResponse.next();
   }
 
   const isAccountPublicPage =

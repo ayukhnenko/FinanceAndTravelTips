@@ -15,10 +15,15 @@ export type AppUser = {
   phone: string | null;
   email: string | null;
   emailVerifiedAt: string | null;
+  isAdmin: boolean;
   name: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+const USER_PUBLIC_FIELDS =
+  "id,login,phone,email,email_verified_at,is_admin,name,created_at,updated_at";
+const USER_RECORD_FIELDS = `${USER_PUBLIC_FIELDS},password_hash`;
 
 const USERS_TIMEOUT_MS = Number(process.env.USERS_TIMEOUT_MS ?? "5000");
 
@@ -44,6 +49,7 @@ function mapUserRow(row: Record<string, unknown>): AppUser {
     email: row.email == null ? null : String(row.email),
     emailVerifiedAt:
       row.email_verified_at == null ? null : String(row.email_verified_at),
+    isAdmin: Boolean(row.is_admin),
     name: row.name == null ? null : String(row.name),
     createdAt: String(row.created_at ?? ""),
     updatedAt: String(row.updated_at ?? ""),
@@ -67,7 +73,7 @@ export async function findUserById(id: string): Promise<AppUser | null> {
     const response = await withTimeout(
       supabase
         .from("app_users")
-        .select("id,login,phone,email,email_verified_at,name,created_at,updated_at")
+        .select(USER_PUBLIC_FIELDS)
         .eq("id", id)
         .maybeSingle()
         .then((r) => r),
@@ -88,7 +94,7 @@ async function findUserRecordByLogin(login: string): Promise<UserRecord | null> 
   const response = await withTimeout(
     supabase
       .from("app_users")
-      .select("id,login,phone,email,email_verified_at,name,created_at,updated_at,password_hash")
+      .select(USER_RECORD_FIELDS)
       .eq("login", login)
       .maybeSingle()
       .then((r) => r),
@@ -105,7 +111,7 @@ async function findUserRecordByEmail(email: string): Promise<UserRecord | null> 
   const response = await withTimeout(
     supabase
       .from("app_users")
-      .select("id,login,phone,email,email_verified_at,name,created_at,updated_at,password_hash")
+      .select(USER_RECORD_FIELDS)
       .eq("email", email)
       .maybeSingle()
       .then((r) => r),
@@ -183,7 +189,7 @@ export async function createUser(input: RegisterUserInput): Promise<CreateUserRe
           password_hash: passwordHash,
           updated_at: now,
         })
-        .select("id,login,phone,email,email_verified_at,name,created_at,updated_at")
+        .select(USER_PUBLIC_FIELDS)
         .single()
         .then((r) => r),
       USERS_TIMEOUT_MS
