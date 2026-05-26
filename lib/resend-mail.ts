@@ -73,6 +73,56 @@ export async function sendVerificationEmail(
   return { ok: true };
 }
 
+export type SendPasswordResetEmailInput = {
+  to: string;
+  login: string;
+  resetUrl: string;
+};
+
+export async function sendPasswordResetEmail(
+  input: SendPasswordResetEmailInput
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const client = getResendClient();
+  const from = getResendFromAddress();
+  if (!client || !from) {
+    return { ok: false, error: "Resend не настроен" };
+  }
+
+  const subject = "Восстановление пароля — Калькуляторы для жизни";
+  const html = `
+    <p>Здравствуйте${input.login ? `, ${escapeHtml(input.login)}` : ""}!</p>
+    <p>Вы запросили смену пароля для личного кабинета. Чтобы задать новый пароль, перейдите по ссылке:</p>
+    <p><a href="${escapeHtml(input.resetUrl)}">Задать новый пароль</a></p>
+    <p>Если вы не запрашивали восстановление, просто проигнорируйте это письмо.</p>
+    <p style="color:#666;font-size:12px;">Ссылка действует 1 час.</p>
+  `.trim();
+
+  const text = [
+    "Здравствуйте!",
+    "",
+    "Вы запросили смену пароля для личного кабинета. Чтобы задать новый пароль, перейдите по ссылке:",
+    input.resetUrl,
+    "",
+    "Если вы не запрашивали восстановление, просто проигнорируйте это письмо.",
+    "Ссылка действует 1 час.",
+  ].join("\n");
+
+  const { error } = await client.emails.send({
+    from,
+    to: input.to,
+    subject,
+    html,
+    text,
+  });
+
+  if (error) {
+    console.error("[resend-mail] sendPasswordResetEmail:", error);
+    return { ok: false, error: "Не удалось отправить письмо" };
+  }
+
+  return { ok: true };
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

@@ -30,9 +30,9 @@ export async function POST(request: Request) {
   const input = {
     login: String(body.login ?? ""),
     password: String(body.password ?? ""),
-    phone: String(body.phone ?? ""),
-    email: body.email != null ? String(body.email) : undefined,
-    name: body.name != null ? String(body.name) : undefined,
+    name: String(body.name ?? ""),
+    phone: body.phone?.trim() ? String(body.phone) : undefined,
+    email: body.email?.trim() ? String(body.email) : undefined,
   };
 
   const validationError = validateRegisterInput(input);

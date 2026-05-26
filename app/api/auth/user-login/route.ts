@@ -29,11 +29,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: validationError }, { status: 400 });
   }
 
-  const user = await authenticateUser(input.identifier, input.password);
-  if (!user) {
-    return NextResponse.json({ ok: false, error: "Неверный логин, телефон или пароль" }, { status: 401 });
+  const result = await authenticateUser(input.identifier, input.password);
+  if (!result.ok) {
+    if (result.error === "email_not_verified") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "E-mail не подтверждён. Войдите по логину или подтвердите адрес по ссылке из письма.",
+        },
+        { status: 401 }
+      );
+    }
+    return NextResponse.json(
+      { ok: false, error: "Неверный логин, e-mail или пароль" },
+      { status: 401 }
+    );
   }
 
-  const response = NextResponse.json({ ok: true, user });
-  return attachUserSessionCookie(response, user.id);
+  const response = NextResponse.json({ ok: true, user: result.user });
+  return attachUserSessionCookie(response, result.user.id);
 }

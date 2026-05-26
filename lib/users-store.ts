@@ -1,7 +1,7 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import {
   hashPassword,
-  isPhoneIdentifier,
+  isEmailIdentifier,
   normalizeEmail,
   normalizeLogin,
   normalizePhone,
@@ -12,7 +12,7 @@ import {
 export type AppUser = {
   id: string;
   login: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   emailVerifiedAt: string | null;
   name: string | null;
@@ -40,7 +40,7 @@ function mapUserRow(row: Record<string, unknown>): AppUser {
   return {
     id: String(row.id),
     login: String(row.login ?? ""),
-    phone: String(row.phone ?? ""),
+    phone: row.phone == null ? null : String(row.phone),
     email: row.email == null ? null : String(row.email),
     emailVerifiedAt:
       row.email_verified_at == null ? null : String(row.email_verified_at),
@@ -98,7 +98,7 @@ async function findUserRecordByLogin(login: string): Promise<UserRecord | null> 
   return mapUserRecord(response.data as Record<string, unknown>);
 }
 
-async function findUserRecordByPhone(phone: string): Promise<UserRecord | null> {
+async function findUserRecordByEmail(email: string): Promise<UserRecord | null> {
   const supabase = getSupabaseAdminClient();
   if (!supabase) return null;
 
@@ -106,7 +106,7 @@ async function findUserRecordByPhone(phone: string): Promise<UserRecord | null> 
     supabase
       .from("app_users")
       .select("id,login,phone,email,email_verified_at,name,created_at,updated_at,password_hash")
-      .eq("phone", phone)
+      .eq("email", email)
       .maybeSingle()
       .then((r) => r),
     USERS_TIMEOUT_MS
@@ -115,24 +115,40 @@ async function findUserRecordByPhone(phone: string): Promise<UserRecord | null> 
   return mapUserRecord(response.data as Record<string, unknown>);
 }
 
+export type AuthenticateUserResult =
+  | { ok: true; user: AppUser }
+  | { ok: false; error: "invalid_credentials" | "email_not_verified" };
+
 export async function authenticateUser(
   identifier: string,
   password: string
-): Promise<AppUser | null> {
+): Promise<AuthenticateUserResult> {
   try {
-    const record = isPhoneIdentifier(identifier)
-      ? await findUserRecordByPhone(normalizePhone(identifier))
-      : await findUserRecordByLogin(normalizeLogin(identifier));
+    let record: UserRecord | null;
 
-    if (!record) return null;
+    if (isEmailIdentifier(identifier)) {
+      record = await findUserRecordByEmail(normalizeEmail(identifier));
+      if (record && !record.emailVerifiedAt) {
+        return { ok: false, error: "email_not_verified" };
+      }
+    } else {
+      record = await findUserRecordByLogin(normalizeLogin(identifier));
+    }
+
+    if (!record) {
+      return { ok: false, error: "invalid_credentials" };
+    }
+
     const valid = await verifyPassword(password, record.passwordHash);
-    if (!valid) return null;
+    if (!valid) {
+      return { ok: false, error: "invalid_credentials" };
+    }
 
     const { passwordHash: _passwordHash, ...user } = record;
-    return user;
+    return { ok: true, user };
   } catch (err) {
     console.error("[users-store] authenticateUser:", err);
-    return null;
+    return { ok: false, error: "invalid_credentials" };
   }
 }
 
@@ -147,10 +163,11 @@ export async function createUser(input: RegisterUserInput): Promise<CreateUserRe
   }
 
   const login = normalizeLogin(input.login);
-  const phone = normalizePhone(input.phone);
+  const phoneRaw = input.phone?.trim() ?? "";
+  const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
   const emailRaw = input.email?.trim() ?? "";
   const email = emailRaw ? normalizeEmail(emailRaw) : null;
-  const name = input.name?.trim() || null;
+  const name = input.name.trim();
   const passwordHash = await hashPassword(input.password);
   const now = new Date().toISOString();
 
@@ -184,5 +201,51 @@ export async function createUser(input: RegisterUserInput): Promise<CreateUserRe
   } catch (err) {
     console.error("[users-store] createUser:", err);
     return { ok: false, error: "Не удалось создать пользователя" };
+  }
+}
+
+export async function findUserByVerifiedEmail(email: string): Promise<AppUser | null> {
+  try {
+    const record = await findUserRecordByEmail(normalizeEmail(email));
+    if (!record?.emailVerifiedAt) return null;
+    const { passwordHash: _passwordHash, ...user } = record;
+    return user;
+  } catch (err) {
+    console.error("[users-store] findUserByVerifiedEmail:", err);
+    return null;
+  }
+}
+
+export async function updateUserPassword(
+  userId: string,
+  password: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) {
+    return { ok: false, error: "База данных не настроена" };
+  }
+
+  const passwordHash = await hashPassword(password);
+  const now = new Date().toISOString();
+
+  try {
+    const response = await withTimeout(
+      supabase
+        .from("app_users")
+        .update({ password_hash: passwordHash, updated_at: now })
+        .eq("id", userId)
+        .then((r) => r),
+      USERS_TIMEOUT_MS
+    );
+
+    if (response.error) {
+      console.error("[users-store] updateUserPassword:", response.error);
+      return { ok: false, error: "Не удалось обновить пароль" };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    console.error("[users-store] updateUserPassword:", err);
+    return { ok: false, error: "Не удалось обновить пароль" };
   }
 }

@@ -44,7 +44,7 @@ export default function AccountEmailVerification({ email, verified }: Props) {
           type="button"
           onClick={() => void handleResend()}
           disabled={pending}
-          className="text-xs link-accent disabled:opacity-60"
+          className="btn-primary px-2 py-1 text-xs disabled:opacity-60"
         >
           {pending ? "Отправка..." : "Отправить письмо"}
         </button>

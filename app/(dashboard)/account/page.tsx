@@ -36,7 +36,7 @@ export default async function AccountPage() {
         <div>
           <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">Телефон</dt>
           <dd className="mt-1 text-sm font-medium text-[var(--foreground)] tabular-nums">
-            {formatPhoneDisplay(user.phone)}
+            {user.phone ? formatPhoneDisplay(user.phone) : "—"}
           </dd>
         </div>
         <div>
@@ -64,7 +64,8 @@ export default async function AccountPage() {
       </dl>
 
       <p className="mt-4 text-sm text-[var(--muted)]">
-        Для входа используйте логин или телефон. Пароль хранится в базе в зашифрованном виде.
+        Для входа используйте логин или подтверждённый e-mail. Пароль хранится в базе в
+        зашифрованном виде.
       </p>
 
       <p className="mt-2 text-sm text-[var(--muted)]">

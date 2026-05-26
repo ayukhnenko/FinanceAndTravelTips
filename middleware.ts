@@ -37,17 +37,26 @@ export async function middleware(request: NextRequest) {
   const isAccountPublicPage =
     pathname === "/account/login" ||
     pathname === "/account/register" ||
-    pathname === "/account/verify-email";
+    pathname === "/account/verify-email" ||
+    pathname === "/account/forgot-password" ||
+    pathname === "/account/reset-password";
   const isAccountPublicApi =
     pathname === "/api/auth/register" ||
     pathname === "/api/auth/user-login" ||
-    pathname === "/api/auth/user-logout";
+    pathname === "/api/auth/user-logout" ||
+    pathname === "/api/auth/request-password-reset" ||
+    pathname === "/api/auth/reset-password";
 
   if (isAccountPublicPage || isAccountPublicApi) {
     const userToken = request.cookies.get(USER_SESSION_COOKIE)?.value;
     const userId = userToken ? await verifyUserSessionToken(userToken) : null;
 
-    if (userId && isAccountPublicPage) {
+    const redirectLoggedInUserFromPublicPage =
+      isAccountPublicPage &&
+      pathname !== "/account/verify-email" &&
+      pathname !== "/account/reset-password";
+
+    if (userId && redirectLoggedInUserFromPublicPage) {
       return NextResponse.redirect(new URL("/account", request.url));
     }
 
@@ -86,5 +95,7 @@ export const config = {
     "/api/auth/user-login",
     "/api/auth/user-logout",
     "/api/auth/send-email-verification",
+    "/api/auth/request-password-reset",
+    "/api/auth/reset-password",
   ],
 };

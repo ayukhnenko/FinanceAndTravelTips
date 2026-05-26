@@ -23,7 +23,7 @@ export default function AccountLogoutButton() {
       type="button"
       onClick={() => void handleLogout()}
       disabled={pending}
-      className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)]/40 disabled:opacity-60"
+      className="btn-primary px-3 py-2 disabled:opacity-60"
     >
       {pending ? "Выход..." : "Выйти"}
     </button>

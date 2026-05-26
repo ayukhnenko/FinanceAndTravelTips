@@ -43,12 +43,12 @@ function AccountLoginForm() {
     <div className="mx-auto max-w-md p-5 md:p-8">
       <h1 className="text-2xl font-bold text-[var(--foreground)]">Вход в личный кабинет</h1>
       <p className="mt-2 text-sm text-[var(--muted)]">
-        Введите логин или номер телефона и пароль.
+        Введите логин или подтверждённый e-mail и пароль.
       </p>
 
       <form onSubmit={handleSubmit} className="card-panel mt-6 space-y-4">
         <label className="block space-y-1">
-          <span className="text-sm text-[var(--muted)]">Логин или телефон</span>
+          <span className="text-sm text-[var(--muted)]">Логин или e-mail</span>
           <input
             type="text"
             autoComplete="username"
@@ -57,6 +57,9 @@ function AccountLoginForm() {
             className="field-input w-full"
             required
           />
+          <span className="block text-xs text-[var(--muted)]">
+            Вход по e-mail возможен только после подтверждения адреса
+          </span>
         </label>
 
         <label className="block space-y-1">
@@ -69,6 +72,11 @@ function AccountLoginForm() {
             className="field-input w-full"
             required
           />
+          <span className="block text-xs text-[var(--muted)]">
+            <Link href="/account/forgot-password" className="link-accent">
+              Забыли пароль?
+            </Link>
+          </span>
         </label>
 
         {error ? <p className="text-sm text-rose-700">{error}</p> : null}
@@ -76,7 +84,7 @@ function AccountLoginForm() {
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--accent)]/40 disabled:opacity-60"
+          className="btn-primary w-full disabled:opacity-60"
         >
           {pending ? "Вход..." : "Войти"}
         </button>

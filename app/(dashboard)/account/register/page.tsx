@@ -8,9 +8,9 @@ export default function AccountRegisterPage() {
   const router = useRouter();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -26,9 +26,9 @@ export default function AccountRegisterPage() {
         body: JSON.stringify({
           login,
           password,
-          phone,
+          name,
+          phone: phone.trim() || undefined,
           email: email.trim() || undefined,
-          name: name.trim() || undefined,
         }),
       });
       const data = (await resp.json().catch(() => ({}))) as { error?: string };
@@ -50,7 +50,7 @@ export default function AccountRegisterPage() {
     <div className="mx-auto max-w-md p-5 md:p-8">
       <h1 className="text-2xl font-bold text-[var(--foreground)]">Регистрация</h1>
       <p className="mt-2 text-sm text-[var(--muted)]">
-        Обязательны логин, пароль и телефон. E-mail и имя — по желанию.
+        Обязательны логин, пароль и имя. Телефон и e-mail — по желанию.
       </p>
 
       <form onSubmit={handleSubmit} className="card-panel mt-6 space-y-4">
@@ -83,7 +83,19 @@ export default function AccountRegisterPage() {
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm text-[var(--muted)]">Телефон *</span>
+          <span className="text-sm text-[var(--muted)]">Имя *</span>
+          <input
+            type="text"
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="field-input w-full"
+            required
+          />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm text-[var(--muted)]">Телефон</span>
           <input
             type="tel"
             autoComplete="tel"
@@ -91,7 +103,6 @@ export default function AccountRegisterPage() {
             onChange={(e) => setPhone(e.target.value)}
             className="field-input w-full"
             placeholder="+7 900 000-00-00"
-            required
           />
         </label>
 
@@ -105,19 +116,8 @@ export default function AccountRegisterPage() {
             className="field-input w-full"
           />
           <span className="block text-xs text-[var(--muted)]">
-            Если указать e-mail, после регистрации отправим ссылку для подтверждения
+            Позволяет восстановить пароль
           </span>
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-sm text-[var(--muted)]">Имя</span>
-          <input
-            type="text"
-            autoComplete="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="field-input w-full"
-          />
         </label>
 
         {error ? <p className="text-sm text-rose-700">{error}</p> : null}
@@ -125,7 +125,7 @@ export default function AccountRegisterPage() {
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--accent)]/40 disabled:opacity-60"
+          className="btn-primary w-full disabled:opacity-60"
         >
           {pending ? "Регистрация..." : "Зарегистрироваться"}
         </button>
