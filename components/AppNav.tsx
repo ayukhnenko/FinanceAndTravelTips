@@ -63,6 +63,10 @@ const navSections = [
     key: "admin",
     links: [{ href: "/admin/settings", key: "admin_settings" as const }],
   },
+  {
+    key: "account",
+    links: [{ href: "/account", key: "account" as const }],
+  },
 ] as const;
 
 type TooltipState = {
@@ -166,6 +170,7 @@ export default function AppNav() {
     deposits: tr("Вклады", "Deposits"),
     docs: tr("Техническая документация", "Technical Documentation"),
     admin: tr("Администрирование", "Administration"),
+    account: tr("Личный кабинет", "Account"),
   };
 
   const linkLabels: Record<
@@ -175,7 +180,8 @@ export default function AppNav() {
     | "admin_settings"
     | "key_rate"
     | "deposits_special_offers"
-    | "deposits_best_offers",
+    | "deposits_best_offers"
+    | "account",
     string
   > = {
     early_repay: tr(
@@ -211,6 +217,7 @@ export default function AppNav() {
     api_docs: tr("Описание API", "API Overview"),
     mcp_docs: tr("MCP сервер", "MCP Server"),
     admin_settings: tr("Настройки параметров", "Parameter Settings"),
+    account: tr("Мой профиль", "My Profile"),
   };
 
   const infoButtonLabel = tr(
@@ -291,7 +298,8 @@ export default function AppNav() {
                     key !== "admin_settings" &&
                     key !== "key_rate" &&
                     key !== "deposits_special_offers" &&
-                    key !== "deposits_best_offers";
+                    key !== "deposits_best_offers" &&
+                    key !== "account";
                   return (
                     <div
                       key={href}
