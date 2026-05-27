@@ -1,11 +1,11 @@
 const FAVICON_MUTED = "#5c6861";
 const FAVICON_ACCENT = "#21a038";
-const FAVICON_UNREAD_DOT = "#0077c8";
+const FAVICON_UNREAD_DOT = "#0091ea";
 const FAVICON_BG = "#f6faf7";
 
 function buildGridFaviconSvg(unread: boolean): string {
   const badge = unread
-    ? `<circle cx="25.5" cy="6.5" r="4.5" fill="${FAVICON_UNREAD_DOT}" stroke="${FAVICON_BG}" stroke-width="2"/>`
+    ? `<circle cx="26" cy="4.5" r="6.5" fill="${FAVICON_UNREAD_DOT}" stroke="${FAVICON_BG}" stroke-width="2.5"/>`
     : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">

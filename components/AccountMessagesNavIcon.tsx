@@ -60,6 +60,8 @@ export default function AccountMessagesNavIcon({ isLoggedIn }: { isLoggedIn: boo
   useEffect(() => {
     if (!isLoggedIn) return;
 
+    void loadUnread();
+
     const interval = window.setInterval(() => {
       void loadUnread();
     }, 30000);
@@ -110,7 +112,6 @@ export default function AccountMessagesNavIcon({ isLoggedIn }: { isLoggedIn: boo
     };
   }, [isLoggedIn, loadUnread, pathname]);
 
-  const highlighted = active || hasUnread;
   const unreadLabel = tr("Есть новые сообщения", "You have new messages");
 
   return (
@@ -119,15 +120,17 @@ export default function AccountMessagesNavIcon({ isLoggedIn }: { isLoggedIn: boo
       title={hasUnread ? `${title} — ${unreadLabel}` : title}
       aria-label={hasUnread ? `${title} — ${unreadLabel}` : title}
       className={`relative inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border transition ${
-        highlighted
+        active
           ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-          : "border-[var(--border)] bg-[var(--input-bg)] text-[var(--muted)] hover:bg-[var(--accent-soft)]/50 hover:text-[var(--foreground)]"
+          : hasUnread
+            ? "border-[var(--link-digital)] bg-[rgba(0,119,200,0.14)] text-[var(--link-digital)]"
+            : "border-[var(--border)] bg-[var(--input-bg)] text-[var(--muted)] hover:bg-[var(--accent-soft)]/50 hover:text-[var(--foreground)]"
       }`}
     >
       <MessagesIcon />
       {hasUnread && !active ? (
         <span
-          className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[var(--link-digital)] ring-2 ring-[var(--card)]"
+          className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[var(--link-digital)] ring-2 ring-[var(--card)]"
           aria-hidden
         />
       ) : null}

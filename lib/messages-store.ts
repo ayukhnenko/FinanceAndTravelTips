@@ -98,7 +98,13 @@ export function isPrivateChatUnread(
   const lastReadAt = getLastReadAtForUser(chat, userId);
   if (!lastReadAt) return true;
 
-  return lastMessage.createdAt > lastReadAt;
+  const lastReadMs = Date.parse(lastReadAt);
+  const messageMs = Date.parse(lastMessage.createdAt);
+  if (Number.isNaN(lastReadMs) || Number.isNaN(messageMs)) {
+    return lastMessage.createdAt > lastReadAt;
+  }
+
+  return messageMs > lastReadMs;
 }
 
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {

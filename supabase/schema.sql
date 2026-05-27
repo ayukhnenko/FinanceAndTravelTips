@@ -142,6 +142,9 @@ alter table public.app_users
 alter table public.app_users
   add column if not exists message_public_key text;
 
+alter table public.app_users
+  add column if not exists message_private_key_backup text;
+
 create table if not exists public.app_email_verification_tokens (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.app_users(id) on delete cascade,

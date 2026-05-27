@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MESSAGES_UNREAD_SYNC_EVENT } from "@/components/AccountMessagesNavIcon";
 import { applyFavicon } from "@/lib/favicon-svg";
 
@@ -9,10 +9,13 @@ export default function DynamicFavicon() {
   const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [hasUnread, setHasUnread] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const defaultTitleRef = useRef<string | null>(null);
 
   const loadUnread = useCallback(async (loggedIn: boolean) => {
     if (!loggedIn) {
       setHasUnread(false);
+      setUnreadChatCount(0);
       return;
     }
 
@@ -23,7 +26,9 @@ export default function DynamicFavicon() {
         unreadChatCount?: number;
       };
       if (!resp.ok) return;
-      setHasUnread(Boolean(data.hasUnread ?? (data.unreadChatCount ?? 0) > 0));
+      const count = data.unreadChatCount ?? 0;
+      setUnreadChatCount(count);
+      setHasUnread(Boolean(data.hasUnread ?? count > 0));
     } catch {
       // ignore transient errors
     }
@@ -48,7 +53,23 @@ export default function DynamicFavicon() {
   }, [hasUnread, isLoggedIn]);
 
   useEffect(() => {
+    if (defaultTitleRef.current === null) {
+      defaultTitleRef.current = document.title;
+    }
+
+    const baseTitle = defaultTitleRef.current;
+    const showUnread = isLoggedIn === true && hasUnread;
+    document.title = showUnread
+      ? unreadChatCount > 1
+        ? `(● ${unreadChatCount}) ${baseTitle}`
+        : `(●) ${baseTitle}`
+      : baseTitle;
+  }, [hasUnread, isLoggedIn, unreadChatCount]);
+
+  useEffect(() => {
     if (!isLoggedIn) return;
+
+    void loadUnread(true);
 
     const interval = window.setInterval(() => {
       void loadUnread(true);
@@ -63,9 +84,13 @@ export default function DynamicFavicon() {
         .detail;
       if (detail && typeof detail.hasUnread === "boolean") {
         setHasUnread(detail.hasUnread);
+        if (typeof detail.unreadChatCount === "number") {
+          setUnreadChatCount(detail.unreadChatCount);
+        }
         return;
       }
       if (detail && typeof detail.unreadChatCount === "number") {
+        setUnreadChatCount(detail.unreadChatCount);
         setHasUnread(detail.unreadChatCount > 0);
         return;
       }

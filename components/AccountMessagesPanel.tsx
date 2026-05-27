@@ -54,18 +54,26 @@ function peerLabel(peer: MessagePeer): string {
   return peer.name?.trim() ? `${peer.name} (@${peer.login})` : `@${peer.login}`;
 }
 
-function previewText(text: string, max = 80): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, max - 1)}…`;
-}
-
 function syncUnreadBadge(unreadChatCount: number): void {
   window.dispatchEvent(
     new CustomEvent(MESSAGES_UNREAD_SYNC_EVENT, {
       detail: { unreadChatCount, hasUnread: unreadChatCount > 0 },
     })
   );
+}
+
+function normalizeChatsForActiveView(
+  chats: PrivateChatSummary[],
+  activeChatId: string | null
+): PrivateChatSummary[] {
+  if (!activeChatId) return chats;
+  return chats.map((chat) =>
+    chat.id === activeChatId ? { ...chat, hasUnread: false } : chat
+  );
+}
+
+function syncChatsUnreadBadge(chats: PrivateChatSummary[]): void {
+  syncUnreadBadge(chats.filter((chat) => chat.hasUnread).length);
 }
 
 async function markChatRead(chatId: string): Promise<void> {
@@ -86,6 +94,7 @@ export default function AccountMessagesPanel() {
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [keysReady, setKeysReady] = useState(false);
+  const [keyGateMode, setKeyGateMode] = useState<"loading" | "ready" | "blocked">("loading");
   const [recipientLogin, setRecipientLogin] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -133,13 +142,9 @@ export default function AccountMessagesPanel() {
         setError(data.error ?? "Не удалось загрузить чаты");
         return [];
       }
-      const nextChats = data.chats ?? [];
+      const nextChats = normalizeChatsForActiveView(data.chats ?? [], activeChatIdRef.current);
       setChats(nextChats);
-      syncUnreadBadge(
-        typeof data.unreadChatCount === "number"
-          ? data.unreadChatCount
-          : nextChats.filter((chat) => chat.hasUnread).length
-      );
+      syncChatsUnreadBadge(nextChats);
       return nextChats;
     } catch {
       setError("Не удалось загрузить чаты");
@@ -169,9 +174,10 @@ export default function AccountMessagesPanel() {
           const next = current.map((chat) =>
             chat.id === chatId ? { ...chat, hasUnread: false } : chat
           );
-          syncUnreadBadge(next.filter((chat) => chat.hasUnread).length);
+          syncChatsUnreadBadge(next);
           return next;
         });
+        await markChatRead(chatId);
         requestAnimationFrame(scrollToBottom);
       } catch {
         setError("Не удалось загрузить сообщения");
@@ -209,21 +215,32 @@ export default function AccountMessagesPanel() {
     [scrollToBottom]
   );
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const keys = await ensureLocalMessageKeys();
+  const initializeKeys = useCallback(async () => {
+    try {
+      const keys = await ensureLocalMessageKeys();
+      if (keys.status === "ready") {
         privateKeyRef.current = keys.privateKey;
         setKeysReady(true);
+        setKeyGateMode("ready");
         if (keys.keysStoreError) {
           setError(keys.keysStoreError);
         }
         await loadChats();
-      } catch {
-        setError("Не удалось настроить ключи шифрования сообщений");
+        return;
       }
-    })();
+      setKeysReady(false);
+      setKeyGateMode("blocked");
+      setError(keys.error);
+    } catch {
+      setKeysReady(false);
+      setKeyGateMode("blocked");
+      setError("Не удалось настроить ключи шифрования сообщений");
+    }
   }, [loadChats]);
+
+  useEffect(() => {
+    void initializeKeys();
+  }, [initializeKeys]);
 
   useEffect(() => {
     void loadChats();
@@ -233,6 +250,14 @@ export default function AccountMessagesPanel() {
     if (!activeChatId || !keysReady) return;
     void loadMessages(activeChatId);
   }, [activeChatId, keysReady, loadMessages]);
+
+  useEffect(() => {
+    return () => {
+      const chatId = activeChatIdRef.current;
+      if (!chatId) return;
+      void markChatRead(chatId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!keysReady) return;
@@ -249,27 +274,30 @@ export default function AccountMessagesPanel() {
 
       if (data.type === "message") {
         if (data.chatId === activeChatIdRef.current) {
-          void appendMessage(data.message);
-          if (!data.message.isOwn) {
-            void markChatRead(data.chatId);
-          }
-          setChats((current) => {
-            const next = current.map((chat) =>
-              chat.id === data.chatId ? { ...chat, hasUnread: false } : chat
-            );
-            syncUnreadBadge(next.filter((chat) => chat.hasUnread).length);
-            return next;
-          });
+          void (async () => {
+            await appendMessage(data.message);
+            if (!data.message.isOwn) {
+              await markChatRead(data.chatId);
+            }
+            setChats((current) => {
+              const next = current.map((chat) =>
+                chat.id === data.chatId ? { ...chat, hasUnread: false } : chat
+              );
+              syncChatsUnreadBadge(next);
+              return next;
+            });
+            await loadChats();
+          })();
         } else {
           setChats((current) => {
             const next = current.map((chat) =>
               chat.id === data.chatId ? { ...chat, hasUnread: true } : chat
             );
-            syncUnreadBadge(next.filter((chat) => chat.hasUnread).length);
+            syncChatsUnreadBadge(next);
             return next;
           });
+          void loadChats();
         }
-        void loadChats();
         return;
       }
 
@@ -386,7 +414,27 @@ export default function AccountMessagesPanel() {
     }
   }
 
-  const canSend = Boolean(messageBody.trim()) && !pendingSend;
+  const canSend = Boolean(messageBody.trim()) && !pendingSend && keysReady;
+
+  if (keyGateMode === "loading") {
+    return (
+      <div className="mt-6 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)] p-8 shadow-[var(--shadow-card)]">
+        <p className="text-sm text-[var(--muted)]">Подготовка сообщений...</p>
+      </div>
+    );
+  }
+
+  if (keyGateMode === "blocked") {
+    return (
+      <div className="mt-6 max-w-lg rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-card)]">
+        <h2 className="text-lg font-semibold text-[var(--foreground)]">Нужен ключ с другого устройства</h2>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          {error ??
+            "Откройте «Сообщения» на другом устройстве один раз — ключ синхронизируется автоматически."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6 flex flex-col gap-4 md:mt-4 md:h-[calc(100vh-9rem)] md:flex-row md:gap-0 md:overflow-hidden md:rounded-xl md:border md:border-[var(--border)] md:bg-[var(--card)] md:shadow-[var(--shadow-card)]">
@@ -432,36 +480,29 @@ export default function AccountMessagesPanel() {
                   key={chat.id}
                   type="button"
                   onClick={() => void handleSelectChat(chat)}
-                  className={`w-full rounded-lg border px-2.5 py-2 text-left transition ${
+                  className={`w-full rounded-lg border px-2.5 py-1.5 text-left transition ${
                     active
                       ? "border-[var(--accent)] bg-[var(--accent-soft)] ring-1 ring-[var(--accent)]/30"
                       : unread
-                        ? "border-[var(--accent)]/70 bg-[var(--accent-soft)]/70 hover:bg-[var(--accent-soft)]"
+                        ? "border-[var(--link-digital)]/70 bg-[rgba(0,119,200,0.12)] hover:bg-[rgba(0,119,200,0.18)]"
                         : "border-[var(--border)] bg-[var(--input-bg)] hover:bg-[var(--accent-soft)]/40"
                   }`}
                 >
                   <div
-                    className={`text-xs leading-snug ${
+                    className={`flex items-center gap-1.5 text-xs leading-tight ${
                       unread
-                        ? "font-semibold text-[var(--accent)]"
+                        ? "font-semibold text-[var(--link-digital)]"
                         : "font-medium text-[var(--foreground)]"
                     }`}
                   >
-                    {peerLabel(chat.peer)}
+                    <span className="min-w-0 truncate">{peerLabel(chat.peer)}</span>
+                    {unread ? (
+                      <span
+                        className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--link-digital)]"
+                        aria-hidden
+                      />
+                    ) : null}
                   </div>
-                  {chat.lastMessage ? (
-                    <div
-                      className={`mt-0.5 text-[10px] leading-snug ${
-                        unread ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"
-                      }`}
-                    >
-                      {previewText(chat.lastMessage.body, 48)}
-                    </div>
-                  ) : (
-                    <div className="mt-0.5 text-[10px] leading-snug text-[var(--muted)]">
-                      Нет сообщений
-                    </div>
-                  )}
                 </button>
               );
             })

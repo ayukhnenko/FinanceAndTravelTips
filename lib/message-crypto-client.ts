@@ -10,6 +10,25 @@ const PRIVATE_KEY_STORAGE = "app_message_private_key_jwk_v1";
 const PUBLIC_KEY_STORAGE = "app_message_public_key_spki_v1";
 const SENT_MESSAGE_CACHE_KEY = "app_message_sent_cache_v1";
 
+export type MessageKeysSetupResult =
+  | {
+      status: "ready";
+      publicKeySpki: string;
+      privateKey: CryptoKey;
+      keysStoredOnServer: boolean;
+      keysStoreError: string | null;
+    }
+  | { status: "blocked"; error: string };
+
+type ServerKeysResponse = {
+  ok?: boolean;
+  publicKey?: string | null;
+  hasKeys?: boolean;
+  hasPrivateKeyBackup?: boolean;
+  privateKeyJwk?: string | null;
+  error?: string;
+};
+
 function getSubtleCrypto(): SubtleCrypto {
   if (typeof globalThis.crypto?.subtle === "undefined") {
     throw new Error("Web Crypto недоступен");
@@ -63,6 +82,11 @@ async function exportPublicKeySpki(publicKey: CryptoKey): Promise<string> {
   return bytesToBase64(new Uint8Array(spki));
 }
 
+async function exportPrivateKeyJwk(privateKey: CryptoKey): Promise<string> {
+  const jwk = await getSubtleCrypto().exportKey("jwk", privateKey);
+  return JSON.stringify(jwk);
+}
+
 async function importPublicKeySpki(spkiBase64: string): Promise<CryptoKey> {
   return getSubtleCrypto().importKey(
     "spki",
@@ -90,9 +114,70 @@ async function importPrivateKeyFromStorage(): Promise<CryptoKey | null> {
   }
 }
 
-async function savePrivateKey(privateKey: CryptoKey): Promise<void> {
+async function importPrivateKeyFromJwkString(privateKeyJwk: string): Promise<CryptoKey> {
+  const jwk = JSON.parse(privateKeyJwk) as JsonWebKey;
+  return getSubtleCrypto().importKey(
+    "jwk",
+    jwk,
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    false,
+    ["decrypt"]
+  );
+}
+
+async function publicKeySpkiFromPrivateKey(privateKey: CryptoKey): Promise<string> {
   const jwk = await getSubtleCrypto().exportKey("jwk", privateKey);
-  localStorage.setItem(PRIVATE_KEY_STORAGE, JSON.stringify(jwk));
+  if (!jwk.n || !jwk.e) {
+    throw new Error("Не удалось получить публичный ключ");
+  }
+  const publicJwk: JsonWebKey = { kty: jwk.kty, n: jwk.n, e: jwk.e };
+  const publicKey = await getSubtleCrypto().importKey(
+    "jwk",
+    publicJwk,
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    true,
+    ["encrypt"]
+  );
+  return exportPublicKeySpki(publicKey);
+}
+
+async function saveLocalMessageKeys(privateKey: CryptoKey, publicKeySpki: string): Promise<void> {
+  const jwk = await exportPrivateKeyJwk(privateKey);
+  localStorage.setItem(PRIVATE_KEY_STORAGE, jwk);
+  localStorage.setItem(PUBLIC_KEY_STORAGE, publicKeySpki);
+}
+
+async function fetchServerKeys(): Promise<ServerKeysResponse> {
+  const resp = await fetch("/api/auth/messages/keys");
+  return (await resp.json().catch(() => ({}))) as ServerKeysResponse;
+}
+
+async function syncKeysToServer(
+  publicKeySpki: string,
+  privateKey: CryptoKey
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const privateKeyJwk = await exportPrivateKeyJwk(privateKey);
+  const resp = await fetch("/api/auth/messages/keys", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ publicKey: publicKeySpki, privateKeyJwk }),
+  });
+  const data = (await resp.json().catch(() => ({}))) as { error?: string };
+  if (!resp.ok) {
+    return { ok: false, error: data.error ?? "Не удалось синхронизировать ключи" };
+  }
+  return { ok: true };
+}
+
+async function restoreKeysFromServer(
+  server: ServerKeysResponse
+): Promise<{ privateKey: CryptoKey; publicKeySpki: string } | null> {
+  if (!server.privateKeyJwk) return null;
+
+  const privateKey = await importPrivateKeyFromJwkString(server.privateKeyJwk);
+  const publicKeySpki = server.publicKey ?? (await publicKeySpkiFromPrivateKey(privateKey));
+  await saveLocalMessageKeys(privateKey, publicKeySpki);
+  return { privateKey, publicKeySpki };
 }
 
 export async function generateMessageKeyPair(): Promise<CryptoKeyPair> {
@@ -108,62 +193,88 @@ export async function generateMessageKeyPair(): Promise<CryptoKeyPair> {
   );
 }
 
-async function uploadPublicKey(
-  publicKeySpki: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const resp = await fetch("/api/auth/messages/keys", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ publicKey: publicKeySpki }),
-  });
-  const data = (await resp.json().catch(() => ({}))) as { error?: string };
-  if (!resp.ok) {
-    return { ok: false, error: data.error ?? "Не удалось сохранить публичный ключ" };
-  }
-  return { ok: true };
-}
-
-export async function ensureLocalMessageKeys(): Promise<{
+function readyResult(input: {
   publicKeySpki: string;
   privateKey: CryptoKey;
   keysStoredOnServer: boolean;
   keysStoreError: string | null;
-}> {
-  const existingPrivate = await importPrivateKeyFromStorage();
-  const storedPublic = localStorage.getItem(PUBLIC_KEY_STORAGE);
+}): MessageKeysSetupResult {
+  return { status: "ready", ...input };
+}
+
+export async function ensureLocalMessageKeys(): Promise<MessageKeysSetupResult> {
+  const server = await fetchServerKeys();
+  let existingPrivate = await importPrivateKeyFromStorage();
+  let storedPublic = localStorage.getItem(PUBLIC_KEY_STORAGE);
+
+  const serverPublic = server.publicKey ?? null;
+  const localMatchesServer = Boolean(
+    existingPrivate && storedPublic && serverPublic && storedPublic === serverPublic
+  );
+
+  if (!localMatchesServer && server.privateKeyJwk) {
+    const restored = await restoreKeysFromServer(server);
+    if (restored) {
+      existingPrivate = restored.privateKey;
+      storedPublic = restored.publicKeySpki;
+    }
+  }
+
   if (existingPrivate && storedPublic) {
-    const upload = await uploadPublicKey(storedPublic).catch(() => ({
+    if (serverPublic && storedPublic !== serverPublic && !server.privateKeyJwk) {
+      localStorage.removeItem(PRIVATE_KEY_STORAGE);
+      localStorage.removeItem(PUBLIC_KEY_STORAGE);
+      return {
+        status: "blocked",
+        error:
+          "Ключ шифрования создан на другом устройстве. Откройте «Сообщения» там один раз для синхронизации.",
+      };
+    }
+
+    const upload = await syncKeysToServer(storedPublic, existingPrivate).catch(() => ({
       ok: false as const,
-      error: "Не удалось сохранить публичный ключ",
+      error: "Не удалось синхронизировать ключи",
     }));
-    return {
+
+    if (
+      !upload.ok &&
+      serverPublic &&
+      storedPublic !== serverPublic
+    ) {
+      return {
+        status: "blocked",
+        error:
+          "Ключ шифрования создан на другом устройстве. Откройте «Сообщения» там один раз для синхронизации.",
+      };
+    }
+
+    return readyResult({
       publicKeySpki: storedPublic,
       privateKey: existingPrivate,
       keysStoredOnServer: upload.ok,
       keysStoreError: upload.ok ? null : upload.error,
+    });
+  }
+
+  if (server.hasKeys) {
+    return {
+      status: "blocked",
+      error:
+        "Ключ шифрования создан на другом устройстве. Откройте «Сообщения» там один раз для синхронизации.",
     };
   }
 
   const pair = await generateMessageKeyPair();
-  await savePrivateKey(pair.privateKey);
   const publicKeySpki = await exportPublicKeySpki(pair.publicKey);
-  localStorage.setItem(PUBLIC_KEY_STORAGE, publicKeySpki);
-  const upload = await uploadPublicKey(publicKeySpki);
-  if (!upload.ok) {
-    return {
-      publicKeySpki,
-      privateKey: pair.privateKey,
-      keysStoredOnServer: false,
-      keysStoreError: upload.error,
-    };
-  }
+  await saveLocalMessageKeys(pair.privateKey, publicKeySpki);
 
-  return {
+  const upload = await syncKeysToServer(publicKeySpki, pair.privateKey);
+  return readyResult({
     publicKeySpki,
     privateKey: pair.privateKey,
-    keysStoredOnServer: true,
-    keysStoreError: null,
-  };
+    keysStoredOnServer: upload.ok,
+    keysStoreError: upload.ok ? null : upload.error,
+  });
 }
 
 export async function encryptMessageForRecipient(
