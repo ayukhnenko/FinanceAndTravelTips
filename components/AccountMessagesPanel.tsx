@@ -121,7 +121,7 @@ export default function AccountMessagesPanel() {
     );
   }, []);
 
-  const loadChats = useCallback(async () => {
+  const loadChats = useCallback(async (): Promise<PrivateChatSummary[]> => {
     try {
       const resp = await fetch("/api/auth/messages/chats");
       const data = (await resp.json().catch(() => ({}))) as {
@@ -131,7 +131,7 @@ export default function AccountMessagesPanel() {
       };
       if (!resp.ok) {
         setError(data.error ?? "Не удалось загрузить чаты");
-        return;
+        return [];
       }
       const nextChats = data.chats ?? [];
       setChats(nextChats);
@@ -140,8 +140,10 @@ export default function AccountMessagesPanel() {
           ? data.unreadChatCount
           : nextChats.filter((chat) => chat.hasUnread).length
       );
+      return nextChats;
     } catch {
       setError("Не удалось загрузить чаты");
+      return [];
     } finally {
       setLoadingChats(false);
     }
@@ -213,11 +215,15 @@ export default function AccountMessagesPanel() {
         const keys = await ensureLocalMessageKeys();
         privateKeyRef.current = keys.privateKey;
         setKeysReady(true);
+        if (keys.keysStoreError) {
+          setError(keys.keysStoreError);
+        }
+        await loadChats();
       } catch {
         setError("Не удалось настроить ключи шифрования сообщений");
       }
     })();
-  }, []);
+  }, [loadChats]);
 
   useEffect(() => {
     void loadChats();
@@ -335,8 +341,18 @@ export default function AccountMessagesPanel() {
     }
 
     try {
-      const bodyToSend = activePeer.messagePublicKey
-        ? await encryptMessageForRecipient(plaintext, activePeer.messagePublicKey)
+      let peerForSend = activePeer;
+      if (!peerForSend.messagePublicKey) {
+        const refreshedChats = await loadChats();
+        const freshChat = refreshedChats.find((chat) => chat.id === activeChatId);
+        if (freshChat?.peer.messagePublicKey) {
+          peerForSend = freshChat.peer;
+          setActivePeer(freshChat.peer);
+        }
+      }
+
+      const bodyToSend = peerForSend.messagePublicKey
+        ? await encryptMessageForRecipient(plaintext, peerForSend.messagePublicKey)
         : plaintext;
 
       const resp = await fetch(`/api/auth/messages/chats/${encodeURIComponent(activeChatId)}`, {
@@ -355,7 +371,7 @@ export default function AccountMessagesPanel() {
 
       setMessageBody("");
       if (data.message) {
-        if (activePeer.messagePublicKey) {
+        if (peerForSend.messagePublicKey) {
           cacheSentMessagePlaintext(data.message.id, plaintext);
         }
         await appendMessage(data.message, plaintext);

@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { isMissingColumnError } from "@/lib/supabase-errors";
 
 const KEYS_TIMEOUT_MS = Number(process.env.MESSAGES_TIMEOUT_MS ?? "5000");
 
@@ -37,7 +38,12 @@ export async function getUserMessagePublicKey(userId: string): Promise<string | 
         .then((r) => r),
       KEYS_TIMEOUT_MS
     );
-    if (response.error || !response.data) return null;
+    if (response.error) {
+      if (isMissingColumnError(response.error)) return null;
+      console.error("[message-keys] getUserMessagePublicKey:", response.error);
+      return null;
+    }
+    if (!response.data) return null;
     const key = response.data.message_public_key;
     return typeof key === "string" && key.trim() ? key.trim() : null;
   } catch (err) {
@@ -77,6 +83,12 @@ export async function setUserMessagePublicKey(
     );
 
     if (response.error) {
+      if (isMissingColumnError(response.error)) {
+        return {
+          ok: false,
+          error: "В базе нет колонки message_public_key — выполните SQL-миграцию в Supabase",
+        };
+      }
       console.error("[message-keys] setUserMessagePublicKey:", response.error);
       return { ok: false, error: "Не удалось сохранить публичный ключ" };
     }

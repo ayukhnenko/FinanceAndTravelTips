@@ -1,41 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useI18n } from "@/components/I18nProvider";
+import { MESSAGES_UNREAD_SYNC_EVENT } from "@/components/AccountMessagesNavIcon";
+import { applyFavicon } from "@/lib/favicon-svg";
 
-export const MESSAGES_UNREAD_SYNC_EVENT = "app-messages-unread-sync";
-
-function MessagesIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-export default function AccountMessagesNavIcon({ isLoggedIn }: { isLoggedIn: boolean }) {
+export default function DynamicFavicon() {
   const pathname = usePathname();
-  const { tr } = useI18n();
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [hasUnread, setHasUnread] = useState(false);
 
-  const title = tr("Сообщения", "Messages");
-  const href = isLoggedIn ? "/account/messages" : "/account/login?from=/account/messages";
-  const active = pathname.startsWith("/account/messages");
-
-  const loadUnread = useCallback(async () => {
-    if (!isLoggedIn) {
+  const loadUnread = useCallback(async (loggedIn: boolean) => {
+    if (!loggedIn) {
       setHasUnread(false);
       return;
     }
@@ -51,21 +27,35 @@ export default function AccountMessagesNavIcon({ isLoggedIn }: { isLoggedIn: boo
     } catch {
       // ignore transient errors
     }
-  }, [isLoggedIn]);
+  }, []);
 
   useEffect(() => {
-    void loadUnread();
+    void (async () => {
+      try {
+        const resp = await fetch("/api/auth/me");
+        const loggedIn = resp.ok;
+        setIsLoggedIn(loggedIn);
+        await loadUnread(loggedIn);
+      } catch {
+        setIsLoggedIn(false);
+        setHasUnread(false);
+      }
+    })();
   }, [loadUnread]);
+
+  useEffect(() => {
+    applyFavicon(isLoggedIn === true && hasUnread);
+  }, [hasUnread, isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
 
     const interval = window.setInterval(() => {
-      void loadUnread();
+      void loadUnread(true);
     }, 30000);
 
     const onFocus = () => {
-      void loadUnread();
+      void loadUnread(true);
     };
 
     const onSync = (event: Event) => {
@@ -79,7 +69,7 @@ export default function AccountMessagesNavIcon({ isLoggedIn }: { isLoggedIn: boo
         setHasUnread(detail.unreadChatCount > 0);
         return;
       }
-      void loadUnread();
+      void loadUnread(true);
     };
 
     let source: EventSource | null = null;
@@ -89,7 +79,7 @@ export default function AccountMessagesNavIcon({ isLoggedIn }: { isLoggedIn: boo
         try {
           const data = JSON.parse(event.data) as { type?: string };
           if (data.type === "message") {
-            void loadUnread();
+            void loadUnread(true);
           }
         } catch {
           // ignore malformed events
@@ -110,27 +100,5 @@ export default function AccountMessagesNavIcon({ isLoggedIn }: { isLoggedIn: boo
     };
   }, [isLoggedIn, loadUnread, pathname]);
 
-  const highlighted = active || hasUnread;
-  const unreadLabel = tr("Есть новые сообщения", "You have new messages");
-
-  return (
-    <Link
-      href={href}
-      title={hasUnread ? `${title} — ${unreadLabel}` : title}
-      aria-label={hasUnread ? `${title} — ${unreadLabel}` : title}
-      className={`relative inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border transition ${
-        highlighted
-          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-          : "border-[var(--border)] bg-[var(--input-bg)] text-[var(--muted)] hover:bg-[var(--accent-soft)]/50 hover:text-[var(--foreground)]"
-      }`}
-    >
-      <MessagesIcon />
-      {hasUnread && !active ? (
-        <span
-          className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[var(--link-digital)] ring-2 ring-[var(--card)]"
-          aria-hidden
-        />
-      ) : null}
-    </Link>
-  );
+  return null;
 }

@@ -108,35 +108,62 @@ export async function generateMessageKeyPair(): Promise<CryptoKeyPair> {
   );
 }
 
-async function uploadPublicKey(publicKeySpki: string): Promise<void> {
+async function uploadPublicKey(
+  publicKeySpki: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const resp = await fetch("/api/auth/messages/keys", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ publicKey: publicKeySpki }),
   });
+  const data = (await resp.json().catch(() => ({}))) as { error?: string };
   if (!resp.ok) {
-    throw new Error("Не удалось сохранить публичный ключ");
+    return { ok: false, error: data.error ?? "Не удалось сохранить публичный ключ" };
   }
+  return { ok: true };
 }
 
 export async function ensureLocalMessageKeys(): Promise<{
   publicKeySpki: string;
   privateKey: CryptoKey;
+  keysStoredOnServer: boolean;
+  keysStoreError: string | null;
 }> {
   const existingPrivate = await importPrivateKeyFromStorage();
   const storedPublic = localStorage.getItem(PUBLIC_KEY_STORAGE);
   if (existingPrivate && storedPublic) {
-    await uploadPublicKey(storedPublic).catch(() => undefined);
-    return { publicKeySpki: storedPublic, privateKey: existingPrivate };
+    const upload = await uploadPublicKey(storedPublic).catch(() => ({
+      ok: false as const,
+      error: "Не удалось сохранить публичный ключ",
+    }));
+    return {
+      publicKeySpki: storedPublic,
+      privateKey: existingPrivate,
+      keysStoredOnServer: upload.ok,
+      keysStoreError: upload.ok ? null : upload.error,
+    };
   }
 
   const pair = await generateMessageKeyPair();
   await savePrivateKey(pair.privateKey);
   const publicKeySpki = await exportPublicKeySpki(pair.publicKey);
   localStorage.setItem(PUBLIC_KEY_STORAGE, publicKeySpki);
-  await uploadPublicKey(publicKeySpki);
+  const upload = await uploadPublicKey(publicKeySpki);
+  if (!upload.ok) {
+    return {
+      publicKeySpki,
+      privateKey: pair.privateKey,
+      keysStoredOnServer: false,
+      keysStoreError: upload.error,
+    };
+  }
 
-  return { publicKeySpki, privateKey: pair.privateKey };
+  return {
+    publicKeySpki,
+    privateKey: pair.privateKey,
+    keysStoredOnServer: true,
+    keysStoreError: null,
+  };
 }
 
 export async function encryptMessageForRecipient(

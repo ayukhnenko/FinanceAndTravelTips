@@ -5,10 +5,13 @@ import {
 import { getUserMessagePublicKey } from "@/lib/message-keys-store";
 import { readPrivateMessagesRetentionHours } from "@/lib/settings-params-store";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { isMissingColumnError, normalizeUserId } from "@/lib/supabase-errors";
 import { findUserById, findUserByLogin } from "@/lib/users-store";
 
 const MESSAGES_TIMEOUT_MS = Number(process.env.MESSAGES_TIMEOUT_MS ?? "5000");
 const MAX_MESSAGE_LENGTH = 4000;
+const CHAT_CORE_SELECT = "id,user_low_id,user_high_id,updated_at";
+const CHAT_READ_SELECT = `${CHAT_CORE_SELECT},user_low_last_read_at,user_high_last_read_at`;
 
 export type MessagePeer = {
   id: string;
@@ -59,11 +62,28 @@ type ChatRow = {
   updated_at: string;
   user_low_last_read_at: string | null;
   user_high_last_read_at: string | null;
+  readTrackingEnabled: boolean;
 };
 
+function mapChatRow(row: Record<string, unknown>, readTrackingEnabled: boolean): ChatRow {
+  return {
+    id: String(row.id),
+    user_low_id: String(row.user_low_id),
+    user_high_id: String(row.user_high_id),
+    updated_at: String(row.updated_at),
+    user_low_last_read_at:
+      row.user_low_last_read_at == null ? null : String(row.user_low_last_read_at),
+    user_high_last_read_at:
+      row.user_high_last_read_at == null ? null : String(row.user_high_last_read_at),
+    readTrackingEnabled,
+  };
+}
+
 function getLastReadAtForUser(chat: ChatRow, userId: string): string | null {
-  if (chat.user_low_id === userId) return chat.user_low_last_read_at;
-  if (chat.user_high_id === userId) return chat.user_high_last_read_at;
+  if (!chat.readTrackingEnabled) return null;
+  const normalizedUserId = normalizeUserId(userId);
+  if (normalizeUserId(chat.user_low_id) === normalizedUserId) return chat.user_low_last_read_at;
+  if (normalizeUserId(chat.user_high_id) === normalizedUserId) return chat.user_high_last_read_at;
   return null;
 }
 
@@ -72,7 +92,7 @@ export function isPrivateChatUnread(
   userId: string,
   lastMessage: { createdAt: string; senderId: string } | null
 ): boolean {
-  if (!lastMessage) return false;
+  if (!chat.readTrackingEnabled || !lastMessage) return false;
   if (lastMessage.senderId === userId) return false;
 
   const lastReadAt = getLastReadAtForUser(chat, userId);
@@ -150,23 +170,132 @@ export async function getChatRow(chatId: string): Promise<ChatRow | null> {
   const supabase = getSupabaseAdminClient();
   if (!supabase) return null;
 
-  const response = await withTimeout(
+  try {
+    const readResponse = await withTimeout(
+      supabase
+        .from("app_private_chats")
+        .select(CHAT_READ_SELECT)
+        .eq("id", chatId)
+        .maybeSingle()
+        .then((r) => r),
+      MESSAGES_TIMEOUT_MS
+    );
+
+    if (isMissingColumnError(readResponse.error)) {
+      const coreResponse = await withTimeout(
+        supabase
+          .from("app_private_chats")
+          .select(CHAT_CORE_SELECT)
+          .eq("id", chatId)
+          .maybeSingle()
+          .then((r) => r),
+        MESSAGES_TIMEOUT_MS
+      );
+      if (coreResponse.error || !coreResponse.data) {
+        console.error("[messages-store] getChatRow:", coreResponse.error);
+        return null;
+      }
+      return mapChatRow(coreResponse.data as Record<string, unknown>, false);
+    }
+
+    if (readResponse.error || !readResponse.data) {
+      console.error("[messages-store] getChatRow:", readResponse.error);
+      return null;
+    }
+
+    return mapChatRow(readResponse.data as Record<string, unknown>, true);
+  } catch (err) {
+    console.error("[messages-store] getChatRow:", err);
+    return null;
+  }
+}
+
+async function listChatRowsForUser(userId: string): Promise<ChatRow[]> {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return [];
+
+  let readTrackingEnabled = true;
+
+  const lowReadResponse = await withTimeout(
     supabase
       .from("app_private_chats")
-      .select("id,user_low_id,user_high_id,updated_at,user_low_last_read_at,user_high_last_read_at")
-      .eq("id", chatId)
-      .maybeSingle()
+      .select(CHAT_READ_SELECT)
+      .eq("user_low_id", userId)
+      .order("updated_at", { ascending: false })
       .then((r) => r),
     MESSAGES_TIMEOUT_MS
   );
 
-  if (response.error || !response.data) return null;
-  return response.data as ChatRow;
+  let lowRows: Record<string, unknown>[] | null = (lowReadResponse.data ?? null) as
+    | Record<string, unknown>[]
+    | null;
+  if (isMissingColumnError(lowReadResponse.error)) {
+    readTrackingEnabled = false;
+    const lowCoreResponse = await withTimeout(
+      supabase
+        .from("app_private_chats")
+        .select(CHAT_CORE_SELECT)
+        .eq("user_low_id", userId)
+        .order("updated_at", { ascending: false })
+        .then((r) => r),
+      MESSAGES_TIMEOUT_MS
+    );
+    if (lowCoreResponse.error) {
+      console.error("[messages-store] listChatRowsForUser:", lowCoreResponse.error);
+      return [];
+    }
+    lowRows = (lowCoreResponse.data ?? null) as Record<string, unknown>[] | null;
+  } else if (lowReadResponse.error) {
+    console.error("[messages-store] listChatRowsForUser:", lowReadResponse.error);
+    return [];
+  }
+
+  const highSelect = readTrackingEnabled ? CHAT_READ_SELECT : CHAT_CORE_SELECT;
+  const highResponse = await withTimeout(
+    supabase
+      .from("app_private_chats")
+      .select(highSelect)
+      .eq("user_high_id", userId)
+      .order("updated_at", { ascending: false })
+      .then((r) => r),
+    MESSAGES_TIMEOUT_MS
+  );
+
+  let highRows: Record<string, unknown>[] | null = (highResponse.data ?? null) as
+    | Record<string, unknown>[]
+    | null;
+  if (readTrackingEnabled && isMissingColumnError(highResponse.error)) {
+    readTrackingEnabled = false;
+    const highCoreResponse = await withTimeout(
+      supabase
+        .from("app_private_chats")
+        .select(CHAT_CORE_SELECT)
+        .eq("user_high_id", userId)
+        .order("updated_at", { ascending: false })
+        .then((r) => r),
+      MESSAGES_TIMEOUT_MS
+    );
+    if (highCoreResponse.error) {
+      console.error("[messages-store] listChatRowsForUser:", highCoreResponse.error);
+      return [];
+    }
+    highRows = (highCoreResponse.data ?? null) as Record<string, unknown>[] | null;
+  } else if (highResponse.error) {
+    console.error("[messages-store] listChatRowsForUser:", highResponse.error);
+    return [];
+  }
+
+  const chats = [...(lowRows ?? []), ...(highRows ?? [])].map((row) =>
+    mapChatRow(row, readTrackingEnabled)
+  );
+  chats.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  return chats;
 }
 
 export function getPeerIdFromChat(chat: ChatRow, userId: string): string | null {
-  if (chat.user_low_id === userId) return chat.user_high_id;
-  if (chat.user_high_id === userId) return chat.user_low_id;
+  const normalizedUserId = normalizeUserId(userId);
+  if (normalizeUserId(chat.user_low_id) === normalizedUserId) return chat.user_high_id;
+  if (normalizeUserId(chat.user_high_id) === normalizedUserId) return chat.user_low_id;
   return null;
 }
 
@@ -181,7 +310,7 @@ async function loadPeers(peerIds: string[]): Promise<Map<string, MessagePeer>> {
   const peers = new Map<string, MessagePeer>();
   if (!supabase || peerIds.length === 0) return peers;
 
-  const response = await withTimeout(
+  const readResponse = await withTimeout(
     supabase
       .from("app_users")
       .select("id,login,name,message_public_key")
@@ -190,14 +319,29 @@ async function loadPeers(peerIds: string[]): Promise<Map<string, MessagePeer>> {
     MESSAGES_TIMEOUT_MS
   );
 
-  if (response.error) {
-    console.error("[messages-store] loadPeers:", response.error);
+  let rows: Record<string, unknown>[] = (readResponse.data ?? []) as Record<string, unknown>[];
+  if (isMissingColumnError(readResponse.error)) {
+    const coreResponse = await withTimeout(
+      supabase
+        .from("app_users")
+        .select("id,login,name")
+        .in("id", peerIds)
+        .then((r) => r),
+      MESSAGES_TIMEOUT_MS
+    );
+    if (coreResponse.error) {
+      console.error("[messages-store] loadPeers:", coreResponse.error);
+      return peers;
+    }
+    rows = (coreResponse.data ?? []) as Record<string, unknown>[];
+  } else if (readResponse.error) {
+    console.error("[messages-store] loadPeers:", readResponse.error);
     return peers;
   }
 
-  for (const row of response.data ?? []) {
+  for (const row of rows) {
     peers.set(
-      String(row.id),
+      normalizeUserId(String(row.id)),
       mapPeer(
         row as {
           id: string;
@@ -219,35 +363,7 @@ export async function listPrivateChatsForUser(userId: string): Promise<PrivateCh
   if (!supabase) return [];
 
   try {
-    const [lowChats, highChats] = await Promise.all([
-      withTimeout(
-        supabase
-          .from("app_private_chats")
-          .select("id,user_low_id,user_high_id,updated_at,user_low_last_read_at,user_high_last_read_at")
-          .eq("user_low_id", userId)
-          .order("updated_at", { ascending: false })
-          .then((r) => r),
-        MESSAGES_TIMEOUT_MS
-      ),
-      withTimeout(
-        supabase
-          .from("app_private_chats")
-          .select("id,user_low_id,user_high_id,updated_at,user_low_last_read_at,user_high_last_read_at")
-          .eq("user_high_id", userId)
-          .order("updated_at", { ascending: false })
-          .then((r) => r),
-        MESSAGES_TIMEOUT_MS
-      ),
-    ]);
-
-    if (lowChats.error || highChats.error) {
-      console.error("[messages-store] listPrivateChatsForUser:", lowChats.error ?? highChats.error);
-      return [];
-    }
-
-    const chats = [...(lowChats.data ?? []), ...(highChats.data ?? [])] as ChatRow[];
-    chats.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-
+    const chats = await listChatRowsForUser(userId);
     if (chats.length === 0) return [];
 
     const peerIds = chats
@@ -287,7 +403,7 @@ export async function listPrivateChatsForUser(userId: string): Promise<PrivateCh
       .map((chat) => {
         const peerId = getPeerIdFromChat(chat, userId);
         if (!peerId) return null;
-        const peer = peers.get(peerId);
+        const peer = peers.get(normalizeUserId(peerId));
         if (!peer) return null;
         return {
           id: chat.id,
@@ -311,14 +427,16 @@ export async function getUnreadChatCountForUser(userId: string): Promise<number>
 
 export async function markPrivateChatAsRead(chatId: string, userId: string): Promise<boolean> {
   const chat = await getChatRow(chatId);
-  if (!chat || getPeerIdFromChat(chat, userId) === null) return false;
+  if (!chat || getPeerIdFromChat(chat, userId) === null || !chat.readTrackingEnabled) {
+    return Boolean(chat && getPeerIdFromChat(chat, userId) !== null);
+  }
 
   const supabase = getSupabaseAdminClient();
   if (!supabase) return false;
 
   const now = new Date().toISOString();
   const update =
-    chat.user_low_id === userId
+    normalizeUserId(chat.user_low_id) === normalizeUserId(userId)
       ? { user_low_last_read_at: now }
       : { user_high_last_read_at: now };
 
@@ -329,6 +447,7 @@ export async function markPrivateChatAsRead(chatId: string, userId: string): Pro
     );
 
     if (response.error) {
+      if (isMissingColumnError(response.error)) return true;
       console.error("[messages-store] markPrivateChatAsRead:", response.error);
       return false;
     }

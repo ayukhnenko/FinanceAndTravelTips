@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import DynamicFavicon from "@/components/DynamicFavicon";
 import { I18nProvider } from "@/components/I18nProvider";
 import { withAppStandLabel } from "@/lib/app-branding";
 import { resolveSiteUrl } from "@/lib/site-url";
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className="antialiased">
+        <DynamicFavicon />
         <I18nProvider>{children}</I18nProvider>
       </body>
     </html>
