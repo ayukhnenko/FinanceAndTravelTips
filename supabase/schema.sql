@@ -139,6 +139,9 @@ alter table public.app_users
 alter table public.app_users
   add column if not exists is_admin boolean not null default false;
 
+alter table public.app_users
+  add column if not exists message_public_key text;
+
 create table if not exists public.app_email_verification_tokens (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.app_users(id) on delete cascade,

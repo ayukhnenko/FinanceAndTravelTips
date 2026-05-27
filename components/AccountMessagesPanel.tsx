@@ -2,11 +2,18 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { formatTimeMoscow } from "@/lib/date-utils";
+import {
+  cacheSentMessagePlaintext,
+  encryptMessageForRecipient,
+  ensureLocalMessageKeys,
+  resolveMessagePlaintext,
+} from "@/lib/message-crypto-client";
 
 type MessagePeer = {
   id: string;
   login: string;
   name: string | null;
+  messagePublicKey: string | null;
 };
 
 type PrivateMessage = {
@@ -16,6 +23,10 @@ type PrivateMessage = {
   body: string;
   createdAt: string;
   isOwn: boolean;
+};
+
+type DisplayMessage = PrivateMessage & {
+  displayBody: string;
 };
 
 type PrivateChatSummary = {
@@ -49,9 +60,10 @@ export default function AccountMessagesPanel() {
   const [chats, setChats] = useState<PrivateChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activePeer, setActivePeer] = useState<MessagePeer | null>(null);
-  const [messages, setMessages] = useState<PrivateMessage[]>([]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [keysReady, setKeysReady] = useState(false);
   const [recipientLogin, setRecipientLogin] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +71,7 @@ export default function AccountMessagesPanel() {
   const [pendingSend, setPendingSend] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const activeChatIdRef = useRef<string | null>(null);
+  const privateKeyRef = useRef<CryptoKey | null>(null);
 
   activeChatIdRef.current = activeChatId;
 
@@ -69,6 +82,20 @@ export default function AccountMessagesPanel() {
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const toDisplayMessages = useCallback(async (items: PrivateMessage[]): Promise<DisplayMessage[]> => {
+    return Promise.all(
+      items.map(async (message) => ({
+        ...message,
+        displayBody: await resolveMessagePlaintext({
+          id: message.id,
+          body: message.body,
+          isOwn: message.isOwn,
+          privateKey: privateKeyRef.current,
+        }),
+      }))
+    );
   }, []);
 
   const loadChats = useCallback(async () => {
@@ -104,7 +131,7 @@ export default function AccountMessagesPanel() {
           setError(data.error ?? "Не удалось загрузить сообщения");
           return;
         }
-        setMessages(data.messages ?? []);
+        setMessages(await toDisplayMessages(data.messages ?? []));
         setActivePeer(data.peer ?? null);
         requestAnimationFrame(scrollToBottom);
       } catch {
@@ -113,14 +140,23 @@ export default function AccountMessagesPanel() {
         setLoadingMessages(false);
       }
     },
-    [scrollToBottom]
+    [scrollToBottom, toDisplayMessages]
   );
 
   const appendMessage = useCallback(
-    (message: PrivateMessage) => {
+    async (message: PrivateMessage, plaintextOverride?: string) => {
+      const displayBody =
+        plaintextOverride ??
+        (await resolveMessagePlaintext({
+          id: message.id,
+          body: message.body,
+          isOwn: message.isOwn,
+          privateKey: privateKeyRef.current,
+        }));
+
       setMessages((current) => {
         if (current.some((item) => item.id === message.id)) return current;
-        return [...current, message];
+        return [...current, { ...message, displayBody }];
       });
       requestAnimationFrame(scrollToBottom);
     },
@@ -128,15 +164,29 @@ export default function AccountMessagesPanel() {
   );
 
   useEffect(() => {
+    void (async () => {
+      try {
+        const keys = await ensureLocalMessageKeys();
+        privateKeyRef.current = keys.privateKey;
+        setKeysReady(true);
+      } catch {
+        setError("Не удалось настроить ключи шифрования сообщений");
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     void loadChats();
   }, [loadChats]);
 
   useEffect(() => {
-    if (!activeChatId) return;
+    if (!activeChatId || !keysReady) return;
     void loadMessages(activeChatId);
-  }, [activeChatId, loadMessages]);
+  }, [activeChatId, keysReady, loadMessages]);
 
   useEffect(() => {
+    if (!keysReady) return;
+
     const source = new EventSource("/api/auth/messages/events");
 
     source.onmessage = (event) => {
@@ -149,7 +199,7 @@ export default function AccountMessagesPanel() {
 
       if (data.type === "message") {
         if (data.chatId === activeChatIdRef.current) {
-          appendMessage(data.message);
+          void appendMessage(data.message);
         }
         void loadChats();
         return;
@@ -161,7 +211,7 @@ export default function AccountMessagesPanel() {
     };
 
     return () => source.close();
-  }, [appendMessage, chatIdsKey, loadChats]);
+  }, [appendMessage, chatIdsKey, keysReady, loadChats]);
 
   useEffect(() => {
     scrollToBottom();
@@ -211,16 +261,27 @@ export default function AccountMessagesPanel() {
 
   async function handleSendMessage(event: FormEvent) {
     event.preventDefault();
-    if (!activeChatId) return;
+    if (!activeChatId || !activePeer?.messagePublicKey) return;
 
     setError(null);
     setPendingSend(true);
 
+    const plaintext = messageBody.trim();
+    if (!plaintext) {
+      setPendingSend(false);
+      return;
+    }
+
     try {
+      const encryptedBody = await encryptMessageForRecipient(
+        plaintext,
+        activePeer.messagePublicKey
+      );
+
       const resp = await fetch(`/api/auth/messages/chats/${encodeURIComponent(activeChatId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: messageBody }),
+        body: JSON.stringify({ body: encryptedBody }),
       });
       const data = (await resp.json().catch(() => ({}))) as {
         message?: PrivateMessage;
@@ -233,7 +294,8 @@ export default function AccountMessagesPanel() {
 
       setMessageBody("");
       if (data.message) {
-        appendMessage(data.message);
+        cacheSentMessagePlaintext(data.message.id, plaintext);
+        await appendMessage(data.message, plaintext);
       } else {
         await loadMessages(activeChatId);
       }
@@ -245,6 +307,9 @@ export default function AccountMessagesPanel() {
     }
   }
 
+  const canSend =
+    keysReady && Boolean(activePeer?.messagePublicKey) && Boolean(messageBody.trim()) && !pendingSend;
+
   return (
     <div className="mt-6 flex flex-col gap-4 md:mt-4 md:h-[calc(100vh-9rem)] md:flex-row md:gap-0 md:overflow-hidden md:rounded-xl md:border md:border-[var(--border)] md:bg-[var(--card)] md:shadow-[var(--shadow-card)]">
       <aside className="flex w-full shrink-0 flex-col gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow-card)] md:w-52 md:rounded-none md:border-0 md:border-r md:border-[var(--border)] md:p-2.5 md:shadow-none">
@@ -253,7 +318,7 @@ export default function AccountMessagesPanel() {
             Чаты
           </h2>
           <p className="mt-1 px-1 text-xs leading-snug text-[var(--muted)]">
-            Начните переписку по логину пользователя
+            Сообщения шифруются для получателя
           </p>
         </div>
 
@@ -268,7 +333,7 @@ export default function AccountMessagesPanel() {
           />
           <button
             type="submit"
-            disabled={pendingOpen || !recipientLogin.trim()}
+            disabled={pendingOpen || !recipientLogin.trim() || !keysReady}
             className="btn-primary w-full px-2.5 py-2 text-xs disabled:opacity-60"
           >
             {pendingOpen ? "Открытие..." : "Новый чат"}
@@ -324,6 +389,11 @@ export default function AccountMessagesPanel() {
               <h2 className="text-sm font-semibold text-[var(--foreground)]">
                 {peerLabel(activePeer)}
               </h2>
+              {!activePeer.messagePublicKey ? (
+                <p className="mt-1 text-xs text-amber-700">
+                  У собеседника ещё нет ключа шифрования — отправка недоступна
+                </p>
+              ) : null}
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-4">
@@ -345,7 +415,7 @@ export default function AccountMessagesPanel() {
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words leading-snug">
-                        {message.body}
+                        {message.displayBody}
                         <span className="ml-2 inline whitespace-nowrap text-[10px] tabular-nums text-[var(--muted)]">
                           {formatTimeMoscow(message.createdAt)}
                         </span>
@@ -366,14 +436,19 @@ export default function AccountMessagesPanel() {
                     value={messageBody}
                     onChange={(e) => setMessageBody(e.target.value)}
                     className="field-input w-full"
-                    placeholder="Введите сообщение..."
+                    placeholder={
+                      activePeer.messagePublicKey
+                        ? "Введите сообщение..."
+                        : "Нельзя отправить — нет ключа у получателя"
+                    }
                     maxLength={4000}
                     autoComplete="off"
+                    disabled={!keysReady || !activePeer.messagePublicKey}
                   />
                 </label>
                 <button
                   type="submit"
-                  disabled={pendingSend || !messageBody.trim()}
+                  disabled={!canSend}
                   className="btn-primary shrink-0 disabled:opacity-60"
                 >
                   {pendingSend ? "..." : "Отправить"}

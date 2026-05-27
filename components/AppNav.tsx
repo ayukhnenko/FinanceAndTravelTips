@@ -8,6 +8,8 @@ import TelegramChannelPromo from "@/components/TelegramChannelPromo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import CalculatorInfoButton from "@/components/CalculatorInfoButton";
 import AccountLogoutButton from "@/components/AccountLogoutButton";
+import AccountNavIcon from "@/components/AccountNavIcon";
+import AccountMessagesNavIcon from "@/components/AccountMessagesNavIcon";
 import { useI18n } from "@/components/I18nProvider";
 import { getPublicAppStandLabel, standLabelClassName } from "@/lib/app-branding";
 import {
@@ -285,8 +287,10 @@ export default function AppNav({
               appTitle
             )}
           </Link>
-          <div className="mt-2">
+          <div className="mt-2 flex items-center gap-2">
             <LanguageSwitcher />
+            <AccountNavIcon isLoggedIn={isLoggedIn} />
+            <AccountMessagesNavIcon isLoggedIn={isLoggedIn} />
           </div>
         </div>
 

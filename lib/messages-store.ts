@@ -1,3 +1,5 @@
+import { previewEncryptedMessageBody, validateEncryptedMessageBody } from "@/lib/message-envelope";
+import { getUserMessagePublicKey } from "@/lib/message-keys-store";
 import { readPrivateMessagesRetentionHours } from "@/lib/settings-params-store";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { findUserById, findUserByLogin } from "@/lib/users-store";
@@ -9,6 +11,7 @@ export type MessagePeer = {
   id: string;
   login: string;
   name: string | null;
+  messagePublicKey: string | null;
 };
 
 export type PrivateMessage = {
@@ -70,11 +73,20 @@ function orderUserIds(userA: string, userB: string): [string, string] {
   return userA < userB ? [userA, userB] : [userB, userA];
 }
 
-function mapPeer(row: { id: string; login: string; name: string | null }): MessagePeer {
+function mapPeer(row: {
+  id: string;
+  login: string;
+  name: string | null;
+  message_public_key?: string | null;
+}): MessagePeer {
   return {
     id: String(row.id),
     login: String(row.login),
     name: row.name == null ? null : String(row.name),
+    messagePublicKey:
+      row.message_public_key == null || !String(row.message_public_key).trim()
+        ? null
+        : String(row.message_public_key).trim(),
   };
 }
 
@@ -146,7 +158,7 @@ async function loadPeers(peerIds: string[]): Promise<Map<string, MessagePeer>> {
   const response = await withTimeout(
     supabase
       .from("app_users")
-      .select("id,login,name")
+      .select("id,login,name,message_public_key")
       .in("id", peerIds)
       .then((r) => r),
     MESSAGES_TIMEOUT_MS
@@ -158,7 +170,17 @@ async function loadPeers(peerIds: string[]): Promise<Map<string, MessagePeer>> {
   }
 
   for (const row of response.data ?? []) {
-    peers.set(String(row.id), mapPeer(row as { id: string; login: string; name: string | null }));
+    peers.set(
+      String(row.id),
+      mapPeer(
+        row as {
+          id: string;
+          login: string;
+          name: string | null;
+          message_public_key?: string | null;
+        }
+      )
+    );
   }
 
   return peers;
@@ -228,7 +250,7 @@ export async function listPrivateChatsForUser(userId: string): Promise<PrivateCh
         const chatId = String(row.chat_id);
         if (lastByChat.has(chatId)) continue;
         lastByChat.set(chatId, {
-          body: String(row.body),
+          body: previewEncryptedMessageBody(String(row.body)),
           createdAt: String(row.created_at),
           senderId: String(row.sender_id),
         });
@@ -323,6 +345,19 @@ export async function listPrivateMessages(
   }
 }
 
+async function mapPeerFromUser(user: {
+  id: string;
+  login: string;
+  name: string | null;
+}): Promise<MessagePeer> {
+  return {
+    id: user.id,
+    login: user.login,
+    name: user.name,
+    messagePublicKey: await getUserMessagePublicKey(user.id),
+  };
+}
+
 export type GetOrCreateChatResult =
   | { ok: true; chatId: string; peer: MessagePeer; created: boolean }
   | { ok: false; error: string };
@@ -368,7 +403,7 @@ export async function getOrCreatePrivateChat(
       return {
         ok: true,
         chatId: String(existing.data.id),
-        peer: mapPeer(recipient),
+        peer: await mapPeerFromUser(recipient),
         created: false,
       };
     }
@@ -395,7 +430,7 @@ export async function getOrCreatePrivateChat(
     return {
       ok: true,
       chatId: String(inserted.data.id),
-      peer: mapPeer(recipient),
+      peer: await mapPeerFromUser(recipient),
       created: true,
     };
   } catch (err) {
@@ -415,7 +450,7 @@ export async function sendPrivateMessage(
 ): Promise<SendPrivateMessageResult> {
   await deleteExpiredPrivateMessages();
 
-  const validationError = validateMessageBody(body);
+  const validationError = validateEncryptedMessageBody(body);
   if (validationError) {
     return { ok: false, error: validationError };
   }
@@ -423,6 +458,16 @@ export async function sendPrivateMessage(
   const chat = await getChatRow(chatId);
   if (!chat || getPeerIdFromChat(chat, senderId) === null) {
     return { ok: false, error: "Чат не найден" };
+  }
+
+  const peerId = getPeerIdFromChat(chat, senderId);
+  if (!peerId) {
+    return { ok: false, error: "Чат не найден" };
+  }
+
+  const recipientPublicKey = await getUserMessagePublicKey(peerId);
+  if (!recipientPublicKey) {
+    return { ok: false, error: "У получателя не настроен ключ шифрования" };
   }
 
   const supabase = getSupabaseAdminClient();
@@ -486,5 +531,9 @@ export async function getPrivateChatPeer(
   const user = await findUserById(peerId);
   if (!user) return null;
 
-  return mapPeer(user);
+  const messagePublicKey = await getUserMessagePublicKey(peerId);
+  return {
+    ...mapPeer(user),
+    messagePublicKey,
+  };
 }
