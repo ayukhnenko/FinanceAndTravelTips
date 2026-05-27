@@ -72,7 +72,9 @@ export async function middleware(request: NextRequest) {
   const isAccountProtected =
     (pathname.startsWith("/account") && !isAccountPublicPage) ||
     pathname === "/api/auth/me" ||
-    pathname === "/api/auth/send-email-verification";
+    pathname === "/api/auth/send-email-verification" ||
+    pathname === "/api/auth/update-profile" ||
+    pathname.startsWith("/api/auth/messages");
 
   if (!isAccountProtected) {
     return NextResponse.next();
@@ -101,6 +103,8 @@ export const config = {
     "/api/auth/user-login",
     "/api/auth/user-logout",
     "/api/auth/send-email-verification",
+    "/api/auth/update-profile",
+    "/api/auth/messages/:path*",
     "/api/auth/request-password-reset",
     "/api/auth/reset-password",
   ],

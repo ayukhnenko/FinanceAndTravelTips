@@ -168,3 +168,42 @@ create index if not exists app_password_reset_tokens_user_id_idx
 
 create index if not exists app_password_reset_tokens_token_hash_idx
   on public.app_password_reset_tokens (token_hash);
+
+-- Приватные чаты между пользователями (1:1).
+create table if not exists public.app_private_chats (
+  id uuid primary key default gen_random_uuid(),
+  user_low_id uuid not null references public.app_users(id) on delete cascade,
+  user_high_id uuid not null references public.app_users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint app_private_chats_users_ordered check (user_low_id < user_high_id),
+  constraint app_private_chats_users_unique unique (user_low_id, user_high_id)
+);
+
+create index if not exists app_private_chats_user_low_idx
+  on public.app_private_chats (user_low_id);
+
+create index if not exists app_private_chats_user_high_idx
+  on public.app_private_chats (user_high_id);
+
+create index if not exists app_private_chats_updated_at_idx
+  on public.app_private_chats (updated_at desc);
+
+create table if not exists public.app_private_messages (
+  id uuid primary key default gen_random_uuid(),
+  chat_id uuid not null references public.app_private_chats(id) on delete cascade,
+  sender_id uuid not null references public.app_users(id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now(),
+  constraint app_private_messages_body_length check (char_length(body) >= 1 and char_length(body) <= 4000)
+);
+
+create index if not exists app_private_messages_chat_created_idx
+  on public.app_private_messages (chat_id, created_at desc);
+
+create index if not exists app_private_messages_created_at_idx
+  on public.app_private_messages (created_at);
+
+-- Realtime для мгновенной доставки новых сообщений (SSE на сервере).
+-- Если таблица уже добавлена в publication, Supabase вернёт ошибку — это нормально.
+alter publication supabase_realtime add table app_private_messages;

@@ -13,16 +13,21 @@ export const DEPOSITS_LAST_SYNCED_AT_PARAM = "deposits_last_synced_at";
 export const DEPOSITS_TOPBANKI_LAST_SYNCED_AT_PARAM = "deposits_topbanki_last_synced_at";
 export const DEPOSITS_SHEET_CHANGED_AT_PARAM = "deposits_sheet_changed_at";
 export const DEPOSITS_INCLUSION_THRESHOLD_PARAM = "deposits_inclusion_threshold";
+export const PRIVATE_MESSAGES_RETENTION_HOURS_PARAM = "private_messages_retention_hours";
 
 export const DEFAULT_CBR_KEY_RATE_URL = "https://www.cbr.ru/hd_base/keyrate/";
 export const DEFAULT_DEPOSITS_SHEET_URL =
   "https://docs.google.com/spreadsheets/d/1U3Su2Jn-DH9ZXRzL8X0PQajcLWDDyKHP/edit?usp=drivesdk&ouid=114738469475006966269&rtpof=true&sd=true";
+export const DEFAULT_PRIVATE_MESSAGES_RETENTION_HOURS = "24";
+export const MIN_PRIVATE_MESSAGES_RETENTION_HOURS = 1;
+export const MAX_PRIVATE_MESSAGES_RETENTION_HOURS = 720;
 
 export type EditableAppSettingDefinition = {
   parameter: string;
   label: string;
   description: string;
   defaultValue: string;
+  valueKind?: "url" | "integer";
 };
 
 export type EditableAppSetting = EditableAppSettingDefinition & {
@@ -48,6 +53,14 @@ export const EDITABLE_APP_SETTINGS: EditableAppSettingDefinition[] = [
     description:
       "Страница topbanki.ru с total_flag=1 — раздел «Максимальные проценты по вкладам»",
     defaultValue: DEFAULT_TOPBANKI_DEPOSITS_URL,
+  },
+  {
+    parameter: PRIVATE_MESSAGES_RETENTION_HOURS_PARAM,
+    label: "Хранение сообщений в чатах (часы)",
+    description:
+      "Сообщения в приватных чатах старше указанного числа часов удаляются для всех пользователей",
+    defaultValue: DEFAULT_PRIVATE_MESSAGES_RETENTION_HOURS,
+    valueKind: "integer",
   },
 ];
 
@@ -85,6 +98,22 @@ export function validateEditableAppSetting(
 ): string | null {
   const trimmed = value.trim();
   if (!trimmed) return "Значение не может быть пустым";
+
+  const definition = EDITABLE_APP_SETTINGS.find((item) => item.parameter === parameter);
+  if (definition?.valueKind === "integer") {
+    if (!/^\d+$/.test(trimmed)) return "Укажите целое число";
+    const hours = Number(trimmed);
+    if (parameter === PRIVATE_MESSAGES_RETENTION_HOURS_PARAM) {
+      if (
+        hours < MIN_PRIVATE_MESSAGES_RETENTION_HOURS ||
+        hours > MAX_PRIVATE_MESSAGES_RETENTION_HOURS
+      ) {
+        return `Укажите число от ${MIN_PRIVATE_MESSAGES_RETENTION_HOURS} до ${MAX_PRIVATE_MESSAGES_RETENTION_HOURS}`;
+      }
+    }
+    return null;
+  }
+
   if (!isValidHttpUrl(trimmed)) return "Укажите корректный HTTP(S) URL";
 
   if (parameter === CBR_KEY_RATE_URL_PARAM) {
@@ -217,6 +246,20 @@ export async function readDepositsTopbankiUrl(): Promise<string> {
   const stored = await readSettingsParam(DEPOSITS_TOPBANKI_URL_PARAM);
   const trimmed = stored?.trim();
   return trimmed || DEFAULT_TOPBANKI_DEPOSITS_URL;
+}
+
+export async function readPrivateMessagesRetentionHours(): Promise<number> {
+  const stored = await readSettingsParam(PRIVATE_MESSAGES_RETENTION_HOURS_PARAM);
+  const trimmed = stored?.trim() || DEFAULT_PRIVATE_MESSAGES_RETENTION_HOURS;
+  const hours = Number(trimmed);
+  if (
+    !Number.isFinite(hours) ||
+    hours < MIN_PRIVATE_MESSAGES_RETENTION_HOURS ||
+    hours > MAX_PRIVATE_MESSAGES_RETENTION_HOURS
+  ) {
+    return Number(DEFAULT_PRIVATE_MESSAGES_RETENTION_HOURS);
+  }
+  return Math.floor(hours);
 }
 
 export type DepositsPublicSettings = {

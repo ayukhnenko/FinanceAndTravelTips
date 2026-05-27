@@ -66,7 +66,10 @@ const navSections = [
   },
   {
     key: "account",
-    links: [{ href: "/account", key: "account" as const }],
+    links: [
+      { href: "/account", key: "account" as const },
+      { href: "/account/messages", key: "account_messages" as const },
+    ],
   },
 ] as const;
 
@@ -188,7 +191,8 @@ export default function AppNav({
     | "key_rate"
     | "deposits_special_offers"
     | "deposits_best_offers"
-    | "account",
+    | "account"
+    | "account_messages",
     string
   > = {
     early_repay: tr(
@@ -225,6 +229,7 @@ export default function AppNav({
     mcp_docs: tr("MCP сервер", "MCP Server"),
     admin_settings: tr("Настройки параметров", "Parameter Settings"),
     account: tr("Мой профиль", "My Profile"),
+    account_messages: tr("Сообщения", "Messages"),
   };
 
   const infoButtonLabel = tr(
@@ -264,11 +269,11 @@ export default function AppNav({
 
   return (
     <>
-      <aside className="relative z-50 flex w-full shrink-0 flex-col border-b border-[var(--border)] bg-[var(--sidebar)] shadow-[var(--shadow-card)] md:sticky md:top-0 md:h-screen md:w-64 md:border-b-0 md:border-r">
-        <div className="shrink-0 border-b border-[var(--border)] px-3 py-4 sm:px-4 sm:py-5">
+      <aside className="relative z-50 flex w-full shrink-0 flex-col border-b border-[var(--border)] bg-[var(--sidebar)] shadow-[var(--shadow-card)] md:sticky md:top-0 md:h-screen md:w-52 md:border-b-0 md:border-r">
+        <div className="shrink-0 border-b border-[var(--border)] px-2.5 py-3 sm:px-3 sm:py-4">
           <Link
             href="/"
-            className="block text-lg font-bold leading-snug tracking-tight text-[var(--foreground)] hover:text-[var(--accent)]"
+            className="block text-base font-bold leading-snug tracking-tight text-[var(--foreground)] hover:text-[var(--accent)]"
           >
             {standLabel ? (
               <>
@@ -286,15 +291,20 @@ export default function AppNav({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-visible">
-          <nav className="flex flex-col gap-4 px-3 py-4">
+          <nav className="flex flex-col gap-3 px-2.5 py-3">
             {visibleSections.map((section) => (
-              <div key={section.key} className="space-y-1">
-                <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)]">
+              <div key={section.key} className="space-y-0.5">
+                <p className="px-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--foreground)]">
                   {sectionTitles[section.key]}
                 </p>
                 {section.links.map(({ href, key }) => {
+                  if (key === "account_messages" && !isLoggedIn) return null;
                   const activeByPath =
-                    href === "/" ? pathname === "/" : pathname.startsWith(href);
+                    href === "/"
+                      ? pathname === "/"
+                      : href === "/account"
+                        ? pathname === "/account"
+                        : pathname.startsWith(href);
                   const activeByInfoPage =
                     key !== "api_docs" &&
                     pathname === `/calculator-info/${key}` &&
@@ -307,7 +317,8 @@ export default function AppNav({
                     key !== "key_rate" &&
                     key !== "deposits_special_offers" &&
                     key !== "deposits_best_offers" &&
-                    key !== "account";
+                    key !== "account" &&
+                    key !== "account_messages";
                   return (
                     <div
                       key={href}
@@ -319,7 +330,7 @@ export default function AppNav({
                     >
                       <Link
                         href={href}
-                        className={`px-3 py-2.5 text-left text-sm font-medium leading-snug ${
+                        className={`px-2.5 py-2 text-left text-xs font-medium leading-snug ${
                           active
                             ? "text-[var(--accent)]"
                             : "text-[var(--muted)] hover:text-[var(--foreground)]"

@@ -56,6 +56,7 @@ type AppSettingRow = {
   description: string;
   value: string;
   defaultValue: string;
+  valueKind?: "url" | "integer";
 };
 
 type SyncLogRow = {
@@ -139,7 +140,8 @@ function AppParamFields({
       </div>
       <p className="mt-2 text-xs leading-snug text-[var(--muted)]">{row.description}</p>
       <input
-        type="url"
+        type={row.valueKind === "integer" ? "number" : "url"}
+        min={row.valueKind === "integer" ? 1 : undefined}
         value={row.value}
         onChange={(e) => onChange(row.parameter, e.target.value)}
         className="field-input mt-3 w-full min-w-0 font-mono text-xs"
@@ -542,7 +544,8 @@ export default function AdminSettingsPage() {
                 </td>
                 <td className="px-2 py-2">
                   <input
-                    type="url"
+                    type={row.valueKind === "integer" ? "number" : "url"}
+                    min={row.valueKind === "integer" ? 1 : undefined}
                     value={row.value}
                     onChange={(e) => updateAppParamValue(row.parameter, e.target.value)}
                     className="field-input w-full min-w-0 font-mono text-xs"

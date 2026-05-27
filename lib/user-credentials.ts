@@ -17,6 +17,12 @@ export type LoginUserInput = {
   password: string;
 };
 
+export type UpdateProfileInput = {
+  name: string;
+  phone?: string;
+  email?: string;
+};
+
 export function normalizeLogin(login: string): string {
   return login.trim().toLowerCase();
 }
@@ -99,6 +105,34 @@ export function validateNewPassword(password: string): string | null {
   if (password.length < 8) {
     return "Пароль должен быть не короче 8 символов";
   }
+  return null;
+}
+
+export function validateUpdateProfileInput(input: UpdateProfileInput): string | null {
+  const name = input.name?.trim() ?? "";
+  if (!name) {
+    return "Укажите имя";
+  }
+  if (name.length > 100) {
+    return "Имя не должно быть длиннее 100 символов";
+  }
+
+  const phoneRaw = input.phone?.trim() ?? "";
+  if (phoneRaw) {
+    const phone = normalizePhone(phoneRaw);
+    if (phone.length < 11 || phone.length > 15) {
+      return "Укажите корректный номер телефона";
+    }
+  }
+
+  const email = input.email?.trim() ?? "";
+  if (email && !EMAIL_PATTERN.test(email)) {
+    return "Некорректный адрес e-mail";
+  }
+  if (email && normalizeEmail(email).length > 254) {
+    return "Адрес e-mail слишком длинный";
+  }
+
   return null;
 }
 
