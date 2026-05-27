@@ -49,7 +49,7 @@ export async function getUserMessagePublicKey(userId: string): Promise<string | 
 export async function setUserMessagePublicKey(
   userId: string,
   publicKey: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; keyChanged: boolean } | { ok: false; error: string }> {
   const supabase = getSupabaseAdminClient();
   if (!supabase) {
     return { ok: false, error: "База данных не настроена" };
@@ -59,6 +59,9 @@ export async function setUserMessagePublicKey(
   if (!normalized) {
     return { ok: false, error: "Некорректный публичный ключ" };
   }
+
+  const existing = await getUserMessagePublicKey(userId);
+  const keyChanged = existing !== normalized;
 
   try {
     const response = await withTimeout(
@@ -78,7 +81,7 @@ export async function setUserMessagePublicKey(
       return { ok: false, error: "Не удалось сохранить публичный ключ" };
     }
 
-    return { ok: true };
+    return { ok: true, keyChanged };
   } catch (err) {
     console.error("[message-keys] setUserMessagePublicKey:", err);
     return { ok: false, error: "Не удалось сохранить публичный ключ" };

@@ -177,11 +177,19 @@ create table if not exists public.app_private_chats (
   id uuid primary key default gen_random_uuid(),
   user_low_id uuid not null references public.app_users(id) on delete cascade,
   user_high_id uuid not null references public.app_users(id) on delete cascade,
+  user_low_last_read_at timestamptz,
+  user_high_last_read_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint app_private_chats_users_ordered check (user_low_id < user_high_id),
   constraint app_private_chats_users_unique unique (user_low_id, user_high_id)
 );
+
+alter table public.app_private_chats
+  add column if not exists user_low_last_read_at timestamptz;
+
+alter table public.app_private_chats
+  add column if not exists user_high_last_read_at timestamptz;
 
 create index if not exists app_private_chats_user_low_idx
   on public.app_private_chats (user_low_id);

@@ -16,5 +16,7 @@ export async function GET() {
     readPrivateMessagesRetentionHours(),
   ]);
 
-  return NextResponse.json({ ok: true, chats, retentionHours });
+  const unreadChatCount = chats.filter((chat) => chat.hasUnread).length;
+
+  return NextResponse.json({ ok: true, chats, retentionHours, unreadChatCount });
 }

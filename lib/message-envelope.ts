@@ -27,6 +27,18 @@ export function isEncryptedMessageEnvelope(body: string): boolean {
   }
 }
 
+export function validatePlainMessageBody(body: string): string | null {
+  const trimmed = body.trim();
+  if (!trimmed) return "Сообщение не может быть пустым";
+  if (trimmed.length > 4000) {
+    return "Сообщение не должно быть длиннее 4000 символов";
+  }
+  if (isEncryptedMessageEnvelope(trimmed)) {
+    return "Некорректный формат сообщения";
+  }
+  return null;
+}
+
 export function validateEncryptedMessageBody(body: string): string | null {
   const trimmed = body.trim();
   if (!trimmed) return "Сообщение не может быть пустым";
@@ -37,6 +49,24 @@ export function validateEncryptedMessageBody(body: string): string | null {
     return "Сообщение должно быть зашифровано";
   }
   return null;
+}
+
+export function validateMessageBodyForSend(
+  body: string,
+  options: { recipientHasPublicKey: boolean }
+): string | null {
+  const trimmed = body.trim();
+  if (!trimmed) return "Сообщение не может быть пустым";
+  if (trimmed.length > 4000) {
+    return "Сообщение не должно быть длиннее 4000 символов";
+  }
+
+  const encrypted = isEncryptedMessageEnvelope(trimmed);
+  if (options.recipientHasPublicKey) {
+    return encrypted ? null : "Сообщение должно быть зашифровано";
+  }
+
+  return encrypted ? "Сообщение должно быть текстом без шифрования" : null;
 }
 
 export function previewEncryptedMessageBody(body: string): string {

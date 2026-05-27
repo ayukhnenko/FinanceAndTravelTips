@@ -271,8 +271,8 @@ export default function AppNav({
 
   return (
     <>
-      <aside className="relative z-50 flex w-full shrink-0 flex-col border-b border-[var(--border)] bg-[var(--sidebar)] shadow-[var(--shadow-card)] md:sticky md:top-0 md:h-screen md:w-52 md:border-b-0 md:border-r">
-        <div className="shrink-0 border-b border-[var(--border)] px-2.5 py-3 sm:px-3 sm:py-4">
+      <aside className="relative z-50 flex w-full shrink-0 flex-col border-b border-[var(--border)] bg-[var(--sidebar)] shadow-[var(--shadow-card)] md:sticky md:top-0 md:h-screen md:w-52 md:overflow-hidden md:border-b-0 md:border-r">
+        <div className="fixed inset-x-0 top-0 z-[60] shrink-0 border-b border-[var(--border)] bg-[var(--sidebar)] px-2.5 py-3 shadow-[var(--shadow-card)] sm:px-3 sm:py-4 md:relative md:inset-x-auto md:top-auto md:z-auto md:shadow-none">
           <Link
             href="/"
             className="block text-base font-bold leading-snug tracking-tight text-[var(--foreground)] hover:text-[var(--accent)]"
@@ -294,7 +294,9 @@ export default function AppNav({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-visible">
+        <div className="h-[5.75rem] shrink-0 sm:h-[6rem] md:hidden" aria-hidden="true" />
+
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-visible md:overscroll-contain">
           <nav className="flex flex-col gap-3 px-2.5 py-3">
             {visibleSections.map((section) => (
               <div key={section.key} className="space-y-0.5">

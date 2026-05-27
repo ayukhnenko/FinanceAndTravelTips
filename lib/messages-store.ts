@@ -1,4 +1,7 @@
-import { previewEncryptedMessageBody, validateEncryptedMessageBody } from "@/lib/message-envelope";
+import {
+  previewEncryptedMessageBody,
+  validateMessageBodyForSend,
+} from "@/lib/message-envelope";
 import { getUserMessagePublicKey } from "@/lib/message-keys-store";
 import { readPrivateMessagesRetentionHours } from "@/lib/settings-params-store";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
@@ -46,6 +49,7 @@ export type PrivateChatSummary = {
     senderId: string;
   } | null;
   updatedAt: string;
+  hasUnread: boolean;
 };
 
 type ChatRow = {
@@ -53,7 +57,29 @@ type ChatRow = {
   user_low_id: string;
   user_high_id: string;
   updated_at: string;
+  user_low_last_read_at: string | null;
+  user_high_last_read_at: string | null;
 };
+
+function getLastReadAtForUser(chat: ChatRow, userId: string): string | null {
+  if (chat.user_low_id === userId) return chat.user_low_last_read_at;
+  if (chat.user_high_id === userId) return chat.user_high_last_read_at;
+  return null;
+}
+
+export function isPrivateChatUnread(
+  chat: ChatRow,
+  userId: string,
+  lastMessage: { createdAt: string; senderId: string } | null
+): boolean {
+  if (!lastMessage) return false;
+  if (lastMessage.senderId === userId) return false;
+
+  const lastReadAt = getLastReadAtForUser(chat, userId);
+  if (!lastReadAt) return true;
+
+  return lastMessage.createdAt > lastReadAt;
+}
 
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -120,14 +146,14 @@ export async function deleteExpiredPrivateMessages(): Promise<void> {
   }
 }
 
-async function getChatRow(chatId: string): Promise<ChatRow | null> {
+export async function getChatRow(chatId: string): Promise<ChatRow | null> {
   const supabase = getSupabaseAdminClient();
   if (!supabase) return null;
 
   const response = await withTimeout(
     supabase
       .from("app_private_chats")
-      .select("id,user_low_id,user_high_id,updated_at")
+      .select("id,user_low_id,user_high_id,updated_at,user_low_last_read_at,user_high_last_read_at")
       .eq("id", chatId)
       .maybeSingle()
       .then((r) => r),
@@ -197,7 +223,7 @@ export async function listPrivateChatsForUser(userId: string): Promise<PrivateCh
       withTimeout(
         supabase
           .from("app_private_chats")
-          .select("id,user_low_id,user_high_id,updated_at")
+          .select("id,user_low_id,user_high_id,updated_at,user_low_last_read_at,user_high_last_read_at")
           .eq("user_low_id", userId)
           .order("updated_at", { ascending: false })
           .then((r) => r),
@@ -206,7 +232,7 @@ export async function listPrivateChatsForUser(userId: string): Promise<PrivateCh
       withTimeout(
         supabase
           .from("app_private_chats")
-          .select("id,user_low_id,user_high_id,updated_at")
+          .select("id,user_low_id,user_high_id,updated_at,user_low_last_read_at,user_high_last_read_at")
           .eq("user_high_id", userId)
           .order("updated_at", { ascending: false })
           .then((r) => r),
@@ -268,12 +294,49 @@ export async function listPrivateChatsForUser(userId: string): Promise<PrivateCh
           peer,
           lastMessage: lastByChat.get(chat.id) ?? null,
           updatedAt: chat.updated_at,
+          hasUnread: isPrivateChatUnread(chat, userId, lastByChat.get(chat.id) ?? null),
         };
       })
       .filter((chat): chat is PrivateChatSummary => chat !== null);
   } catch (err) {
     console.error("[messages-store] listPrivateChatsForUser:", err);
     return [];
+  }
+}
+
+export async function getUnreadChatCountForUser(userId: string): Promise<number> {
+  const chats = await listPrivateChatsForUser(userId);
+  return chats.filter((chat) => chat.hasUnread).length;
+}
+
+export async function markPrivateChatAsRead(chatId: string, userId: string): Promise<boolean> {
+  const chat = await getChatRow(chatId);
+  if (!chat || getPeerIdFromChat(chat, userId) === null) return false;
+
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return false;
+
+  const now = new Date().toISOString();
+  const update =
+    chat.user_low_id === userId
+      ? { user_low_last_read_at: now }
+      : { user_high_last_read_at: now };
+
+  try {
+    const response = await withTimeout(
+      supabase.from("app_private_chats").update(update).eq("id", chatId).then((r) => r),
+      MESSAGES_TIMEOUT_MS
+    );
+
+    if (response.error) {
+      console.error("[messages-store] markPrivateChatAsRead:", response.error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("[messages-store] markPrivateChatAsRead:", err);
+    return false;
   }
 }
 
@@ -450,11 +513,6 @@ export async function sendPrivateMessage(
 ): Promise<SendPrivateMessageResult> {
   await deleteExpiredPrivateMessages();
 
-  const validationError = validateEncryptedMessageBody(body);
-  if (validationError) {
-    return { ok: false, error: validationError };
-  }
-
   const chat = await getChatRow(chatId);
   if (!chat || getPeerIdFromChat(chat, senderId) === null) {
     return { ok: false, error: "Чат не найден" };
@@ -466,8 +524,11 @@ export async function sendPrivateMessage(
   }
 
   const recipientPublicKey = await getUserMessagePublicKey(peerId);
-  if (!recipientPublicKey) {
-    return { ok: false, error: "У получателя не настроен ключ шифрования" };
+  const validationError = validateMessageBodyForSend(body, {
+    recipientHasPublicKey: Boolean(recipientPublicKey),
+  });
+  if (validationError) {
+    return { ok: false, error: validationError };
   }
 
   const supabase = getSupabaseAdminClient();

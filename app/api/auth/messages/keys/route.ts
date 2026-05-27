@@ -4,6 +4,7 @@ import {
   getUserMessagePublicKey,
   setUserMessagePublicKey,
 } from "@/lib/message-keys-store";
+import { reencryptPlainMessagesForRecipient } from "@/lib/messages-reencrypt";
 
 export const dynamic = "force-dynamic";
 
@@ -35,5 +36,10 @@ export async function PUT(request: Request) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true });
+  let reencryptedCount = 0;
+  if (result.keyChanged) {
+    reencryptedCount = await reencryptPlainMessagesForRecipient(user.id);
+  }
+
+  return NextResponse.json({ ok: true, reencryptedCount });
 }

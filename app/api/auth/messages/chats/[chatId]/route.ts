@@ -3,9 +3,11 @@ import { getCurrentUser } from "@/lib/get-current-user";
 import {
   getPrivateChatPeer,
   listPrivateMessages,
+  markPrivateChatAsRead,
   sendPrivateMessage,
 } from "@/lib/messages-store";
 import { readPrivateMessagesRetentionHours } from "@/lib/settings-params-store";
+import { reencryptPlainMessagesInChat } from "@/lib/messages-reencrypt";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,8 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const chatId = context.params.chatId;
+  await reencryptPlainMessagesInChat(chatId);
+
   const [messages, peer, retentionHours] = await Promise.all([
     listPrivateMessages(chatId, user.id),
     getPrivateChatPeer(chatId, user.id),
@@ -29,6 +33,8 @@ export async function GET(_request: Request, context: RouteContext) {
   if (messages === null || !peer) {
     return NextResponse.json({ ok: false, error: "Чат не найден" }, { status: 404 });
   }
+
+  await markPrivateChatAsRead(chatId, user.id);
 
   return NextResponse.json({ ok: true, messages, peer, retentionHours });
 }

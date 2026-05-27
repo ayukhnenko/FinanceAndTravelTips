@@ -2,12 +2,14 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { formatTimeMoscow } from "@/lib/date-utils";
+import { isEncryptedMessageEnvelope } from "@/lib/message-envelope";
 import {
   cacheSentMessagePlaintext,
   encryptMessageForRecipient,
   ensureLocalMessageKeys,
   resolveMessagePlaintext,
 } from "@/lib/message-crypto-client";
+import { MESSAGES_UNREAD_SYNC_EVENT } from "@/components/AccountMessagesNavIcon";
 
 type MessagePeer = {
   id: string;
@@ -27,6 +29,7 @@ type PrivateMessage = {
 
 type DisplayMessage = PrivateMessage & {
   displayBody: string;
+  encrypted: boolean;
 };
 
 type PrivateChatSummary = {
@@ -38,6 +41,7 @@ type PrivateChatSummary = {
     senderId: string;
   } | null;
   updatedAt: string;
+  hasUnread: boolean;
 };
 
 type MessageRealtimeEvent =
@@ -54,6 +58,24 @@ function previewText(text: string, max = 80): string {
   const trimmed = text.trim();
   if (trimmed.length <= max) return trimmed;
   return `${trimmed.slice(0, max - 1)}…`;
+}
+
+function syncUnreadBadge(unreadChatCount: number): void {
+  window.dispatchEvent(
+    new CustomEvent(MESSAGES_UNREAD_SYNC_EVENT, {
+      detail: { unreadChatCount, hasUnread: unreadChatCount > 0 },
+    })
+  );
+}
+
+async function markChatRead(chatId: string): Promise<void> {
+  try {
+    await fetch(`/api/auth/messages/chats/${encodeURIComponent(chatId)}/read`, {
+      method: "POST",
+    });
+  } catch {
+    // ignore transient errors
+  }
 }
 
 export default function AccountMessagesPanel() {
@@ -88,6 +110,7 @@ export default function AccountMessagesPanel() {
     return Promise.all(
       items.map(async (message) => ({
         ...message,
+        encrypted: isEncryptedMessageEnvelope(message.body),
         displayBody: await resolveMessagePlaintext({
           id: message.id,
           body: message.body,
@@ -103,13 +126,20 @@ export default function AccountMessagesPanel() {
       const resp = await fetch("/api/auth/messages/chats");
       const data = (await resp.json().catch(() => ({}))) as {
         chats?: PrivateChatSummary[];
+        unreadChatCount?: number;
         error?: string;
       };
       if (!resp.ok) {
         setError(data.error ?? "Не удалось загрузить чаты");
         return;
       }
-      setChats(data.chats ?? []);
+      const nextChats = data.chats ?? [];
+      setChats(nextChats);
+      syncUnreadBadge(
+        typeof data.unreadChatCount === "number"
+          ? data.unreadChatCount
+          : nextChats.filter((chat) => chat.hasUnread).length
+      );
     } catch {
       setError("Не удалось загрузить чаты");
     } finally {
@@ -133,6 +163,13 @@ export default function AccountMessagesPanel() {
         }
         setMessages(await toDisplayMessages(data.messages ?? []));
         setActivePeer(data.peer ?? null);
+        setChats((current) => {
+          const next = current.map((chat) =>
+            chat.id === chatId ? { ...chat, hasUnread: false } : chat
+          );
+          syncUnreadBadge(next.filter((chat) => chat.hasUnread).length);
+          return next;
+        });
         requestAnimationFrame(scrollToBottom);
       } catch {
         setError("Не удалось загрузить сообщения");
@@ -156,7 +193,14 @@ export default function AccountMessagesPanel() {
 
       setMessages((current) => {
         if (current.some((item) => item.id === message.id)) return current;
-        return [...current, { ...message, displayBody }];
+        return [
+          ...current,
+          {
+            ...message,
+            encrypted: isEncryptedMessageEnvelope(message.body),
+            displayBody,
+          },
+        ];
       });
       requestAnimationFrame(scrollToBottom);
     },
@@ -200,6 +244,24 @@ export default function AccountMessagesPanel() {
       if (data.type === "message") {
         if (data.chatId === activeChatIdRef.current) {
           void appendMessage(data.message);
+          if (!data.message.isOwn) {
+            void markChatRead(data.chatId);
+          }
+          setChats((current) => {
+            const next = current.map((chat) =>
+              chat.id === data.chatId ? { ...chat, hasUnread: false } : chat
+            );
+            syncUnreadBadge(next.filter((chat) => chat.hasUnread).length);
+            return next;
+          });
+        } else {
+          setChats((current) => {
+            const next = current.map((chat) =>
+              chat.id === data.chatId ? { ...chat, hasUnread: true } : chat
+            );
+            syncUnreadBadge(next.filter((chat) => chat.hasUnread).length);
+            return next;
+          });
         }
         void loadChats();
         return;
@@ -261,7 +323,7 @@ export default function AccountMessagesPanel() {
 
   async function handleSendMessage(event: FormEvent) {
     event.preventDefault();
-    if (!activeChatId || !activePeer?.messagePublicKey) return;
+    if (!activeChatId || !activePeer) return;
 
     setError(null);
     setPendingSend(true);
@@ -273,15 +335,14 @@ export default function AccountMessagesPanel() {
     }
 
     try {
-      const encryptedBody = await encryptMessageForRecipient(
-        plaintext,
-        activePeer.messagePublicKey
-      );
+      const bodyToSend = activePeer.messagePublicKey
+        ? await encryptMessageForRecipient(plaintext, activePeer.messagePublicKey)
+        : plaintext;
 
       const resp = await fetch(`/api/auth/messages/chats/${encodeURIComponent(activeChatId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: encryptedBody }),
+        body: JSON.stringify({ body: bodyToSend }),
       });
       const data = (await resp.json().catch(() => ({}))) as {
         message?: PrivateMessage;
@@ -294,7 +355,9 @@ export default function AccountMessagesPanel() {
 
       setMessageBody("");
       if (data.message) {
-        cacheSentMessagePlaintext(data.message.id, plaintext);
+        if (activePeer.messagePublicKey) {
+          cacheSentMessagePlaintext(data.message.id, plaintext);
+        }
         await appendMessage(data.message, plaintext);
       } else {
         await loadMessages(activeChatId);
@@ -307,8 +370,7 @@ export default function AccountMessagesPanel() {
     }
   }
 
-  const canSend =
-    keysReady && Boolean(activePeer?.messagePublicKey) && Boolean(messageBody.trim()) && !pendingSend;
+  const canSend = Boolean(messageBody.trim()) && !pendingSend;
 
   return (
     <div className="mt-6 flex flex-col gap-4 md:mt-4 md:h-[calc(100vh-9rem)] md:flex-row md:gap-0 md:overflow-hidden md:rounded-xl md:border md:border-[var(--border)] md:bg-[var(--card)] md:shadow-[var(--shadow-card)]">
@@ -318,7 +380,7 @@ export default function AccountMessagesPanel() {
             Чаты
           </h2>
           <p className="mt-1 px-1 text-xs leading-snug text-[var(--muted)]">
-            Сообщения шифруются для получателя
+            Шифрование включается, когда собеседник откроет «Сообщения»
           </p>
         </div>
 
@@ -333,7 +395,7 @@ export default function AccountMessagesPanel() {
           />
           <button
             type="submit"
-            disabled={pendingOpen || !recipientLogin.trim() || !keysReady}
+            disabled={pendingOpen || !recipientLogin.trim()}
             className="btn-primary w-full px-2.5 py-2 text-xs disabled:opacity-60"
           >
             {pendingOpen ? "Открытие..." : "Новый чат"}
@@ -348,6 +410,7 @@ export default function AccountMessagesPanel() {
           ) : (
             chats.map((chat) => {
               const active = chat.id === activeChatId;
+              const unread = chat.hasUnread && !active;
               return (
                 <button
                   key={chat.id}
@@ -356,14 +419,26 @@ export default function AccountMessagesPanel() {
                   className={`w-full rounded-lg border px-2.5 py-2 text-left transition ${
                     active
                       ? "border-[var(--accent)] bg-[var(--accent-soft)] ring-1 ring-[var(--accent)]/30"
-                      : "border-[var(--border)] bg-[var(--input-bg)] hover:bg-[var(--accent-soft)]/40"
+                      : unread
+                        ? "border-[var(--accent)]/70 bg-[var(--accent-soft)]/70 hover:bg-[var(--accent-soft)]"
+                        : "border-[var(--border)] bg-[var(--input-bg)] hover:bg-[var(--accent-soft)]/40"
                   }`}
                 >
-                  <div className="text-xs font-medium leading-snug text-[var(--foreground)]">
+                  <div
+                    className={`text-xs leading-snug ${
+                      unread
+                        ? "font-semibold text-[var(--accent)]"
+                        : "font-medium text-[var(--foreground)]"
+                    }`}
+                  >
                     {peerLabel(chat.peer)}
                   </div>
                   {chat.lastMessage ? (
-                    <div className="mt-0.5 text-[10px] leading-snug text-[var(--muted)]">
+                    <div
+                      className={`mt-0.5 text-[10px] leading-snug ${
+                        unread ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"
+                      }`}
+                    >
                       {previewText(chat.lastMessage.body, 48)}
                     </div>
                   ) : (
@@ -391,7 +466,8 @@ export default function AccountMessagesPanel() {
               </h2>
               {!activePeer.messagePublicKey ? (
                 <p className="mt-1 text-xs text-amber-700">
-                  У собеседника ещё нет ключа шифрования — отправка недоступна
+                  Собеседник ещё не открывал «Сообщения» — новые сообщения отправляются без
+                  шифрования
                 </p>
               ) : null}
             </div>
@@ -420,6 +496,9 @@ export default function AccountMessagesPanel() {
                           {formatTimeMoscow(message.createdAt)}
                         </span>
                       </p>
+                      {!message.encrypted ? (
+                        <p className="mt-1 text-[10px] text-amber-700">Не зашифровано</p>
+                      ) : null}
                     </div>
                   </div>
                 ))
@@ -436,14 +515,9 @@ export default function AccountMessagesPanel() {
                     value={messageBody}
                     onChange={(e) => setMessageBody(e.target.value)}
                     className="field-input w-full"
-                    placeholder={
-                      activePeer.messagePublicKey
-                        ? "Введите сообщение..."
-                        : "Нельзя отправить — нет ключа у получателя"
-                    }
+                    placeholder="Введите сообщение..."
                     maxLength={4000}
                     autoComplete="off"
-                    disabled={!keysReady || !activePeer.messagePublicKey}
                   />
                 </label>
                 <button
