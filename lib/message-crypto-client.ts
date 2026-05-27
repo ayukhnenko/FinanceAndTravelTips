@@ -52,17 +52,27 @@ function base64ToBytes(value: string): Uint8Array<ArrayBuffer> {
 
 function readSentCache(): Record<string, string> {
   try {
-    const raw = sessionStorage.getItem(SENT_MESSAGE_CACHE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, string>;
-    return parsed && typeof parsed === "object" ? parsed : {};
+    const raw = localStorage.getItem(SENT_MESSAGE_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+    const legacy = sessionStorage.getItem(SENT_MESSAGE_CACHE_KEY);
+    if (!legacy) return {};
+    const parsed = JSON.parse(legacy) as Record<string, string>;
+    if (parsed && typeof parsed === "object") {
+      localStorage.setItem(SENT_MESSAGE_CACHE_KEY, legacy);
+      sessionStorage.removeItem(SENT_MESSAGE_CACHE_KEY);
+      return parsed;
+    }
+    return {};
   } catch {
     return {};
   }
 }
 
 function writeSentCache(cache: Record<string, string>): void {
-  sessionStorage.setItem(SENT_MESSAGE_CACHE_KEY, JSON.stringify(cache));
+  localStorage.setItem(SENT_MESSAGE_CACHE_KEY, JSON.stringify(cache));
 }
 
 export function cacheSentMessagePlaintext(messageId: string, plaintext: string): void {
@@ -279,7 +289,8 @@ export async function ensureLocalMessageKeys(): Promise<MessageKeysSetupResult> 
 
 export async function encryptMessageForRecipient(
   plaintext: string,
-  recipientPublicKeySpki: string
+  recipientPublicKeySpki: string,
+  senderPublicKeySpki?: string | null
 ): Promise<string> {
   const recipientPublicKey = await importPublicKeySpki(recipientPublicKeySpki);
   const aesKey = await getSubtleCrypto().generateKey(
@@ -309,22 +320,28 @@ export async function encryptMessageForRecipient(
     ek: bytesToBase64(new Uint8Array(encryptedAesKey)),
   };
 
+  if (senderPublicKeySpki) {
+    const senderPublicKey = await importPublicKeySpki(senderPublicKeySpki);
+    const senderEncryptedAesKey = await getSubtleCrypto().encrypt(
+      { name: "RSA-OAEP" },
+      senderPublicKey,
+      rawAesKey
+    );
+    envelope.sek = bytesToBase64(new Uint8Array(senderEncryptedAesKey));
+  }
+
   return JSON.stringify(envelope);
 }
 
-export async function decryptMessageForRecipient(
-  envelopeJson: string,
+async function decryptEnvelope(
+  envelope: MessageEnvelope,
+  encryptedAesKeyBase64: string,
   privateKey: CryptoKey
 ): Promise<string> {
-  const envelope = JSON.parse(envelopeJson) as MessageEnvelope;
-  if (envelope.v !== MESSAGE_ENVELOPE_VERSION || envelope.alg !== MESSAGE_ENVELOPE_ALG) {
-    throw new Error("Неподдерживаемый формат сообщения");
-  }
-
   const rawAesKey = await getSubtleCrypto().decrypt(
     { name: "RSA-OAEP" },
     privateKey,
-    base64ToBytes(envelope.ek)
+    base64ToBytes(encryptedAesKeyBase64)
   );
   const aesKey = await getSubtleCrypto().importKey(
     "raw",
@@ -340,6 +357,18 @@ export async function decryptMessageForRecipient(
   );
 
   return new TextDecoder().decode(plaintext);
+}
+
+export async function decryptMessageForRecipient(
+  envelopeJson: string,
+  privateKey: CryptoKey
+): Promise<string> {
+  const envelope = JSON.parse(envelopeJson) as MessageEnvelope;
+  if (envelope.v !== MESSAGE_ENVELOPE_VERSION || envelope.alg !== MESSAGE_ENVELOPE_ALG) {
+    throw new Error("Неподдерживаемый формат сообщения");
+  }
+
+  return decryptEnvelope(envelope, envelope.ek, privateKey);
 }
 
 export async function resolveMessagePlaintext(input: {
@@ -367,7 +396,20 @@ export async function resolveMessagePlaintext(input: {
   if (!encrypted) return body;
 
   if (isOwn) {
-    return "🔒 Зашифрованное сообщение";
+    if (!privateKey) {
+      return "🔒 Зашифрованное сообщение";
+    }
+    try {
+      const envelope = JSON.parse(body) as MessageEnvelope;
+      if (typeof envelope.sek !== "string" || !envelope.sek.length) {
+        return "🔒 Зашифрованное сообщение";
+      }
+      const plaintext = await decryptEnvelope(envelope, envelope.sek, privateKey);
+      cacheSentMessagePlaintext(id, plaintext);
+      return plaintext;
+    } catch {
+      return "🔒 Зашифрованное сообщение";
+    }
   }
 
   if (!privateKey) {

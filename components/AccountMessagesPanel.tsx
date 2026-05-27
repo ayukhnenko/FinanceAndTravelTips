@@ -103,6 +103,7 @@ export default function AccountMessagesPanel() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const activeChatIdRef = useRef<string | null>(null);
   const privateKeyRef = useRef<CryptoKey | null>(null);
+  const publicKeyRef = useRef<string | null>(null);
 
   activeChatIdRef.current = activeChatId;
 
@@ -220,6 +221,7 @@ export default function AccountMessagesPanel() {
       const keys = await ensureLocalMessageKeys();
       if (keys.status === "ready") {
         privateKeyRef.current = keys.privateKey;
+        publicKeyRef.current = keys.publicKeySpki;
         setKeysReady(true);
         setKeyGateMode("ready");
         if (keys.keysStoreError) {
@@ -380,7 +382,11 @@ export default function AccountMessagesPanel() {
       }
 
       const bodyToSend = peerForSend.messagePublicKey
-        ? await encryptMessageForRecipient(plaintext, peerForSend.messagePublicKey)
+        ? await encryptMessageForRecipient(
+            plaintext,
+            peerForSend.messagePublicKey,
+            publicKeyRef.current
+          )
         : plaintext;
 
       const resp = await fetch(`/api/auth/messages/chats/${encodeURIComponent(activeChatId)}`, {
@@ -399,9 +405,7 @@ export default function AccountMessagesPanel() {
 
       setMessageBody("");
       if (data.message) {
-        if (peerForSend.messagePublicKey) {
-          cacheSentMessagePlaintext(data.message.id, plaintext);
-        }
+        cacheSentMessagePlaintext(data.message.id, plaintext);
         await appendMessage(data.message, plaintext);
       } else {
         await loadMessages(activeChatId);

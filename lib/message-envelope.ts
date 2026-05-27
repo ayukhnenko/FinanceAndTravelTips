@@ -7,6 +7,8 @@ export type MessageEnvelope = {
   iv: string;
   ct: string;
   ek: string;
+  /** AES key encrypted for sender — lets author read own sent messages later */
+  sek?: string;
 };
 
 export function isEncryptedMessageEnvelope(body: string): boolean {
