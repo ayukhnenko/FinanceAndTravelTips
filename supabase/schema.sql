@@ -221,3 +221,31 @@ create index if not exists app_private_messages_created_at_idx
 -- Realtime для мгновенной доставки новых сообщений (SSE на сервере).
 -- Если таблица уже добавлена в publication, Supabase вернёт ошибку — это нормально.
 alter publication supabase_realtime add table app_private_messages;
+
+-- Кейсы пользователей для анализа (зарегистрированные и гости).
+create table if not exists public.app_user_cases (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.app_users(id) on delete set null,
+  guest_email text,
+  guest_token_hash text,
+  title text not null,
+  body text not null,
+  status text not null default 'draft' check (status in ('draft', 'submitted', 'answered')),
+  admin_response text,
+  admin_responded_at timestamptz,
+  admin_responded_by uuid references public.app_users(id) on delete set null,
+  submitted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint app_user_cases_title_length check (char_length(title) >= 3 and char_length(title) <= 200),
+  constraint app_user_cases_body_length check (char_length(body) >= 10 and char_length(body) <= 10000)
+);
+
+create index if not exists app_user_cases_user_id_idx
+  on public.app_user_cases (user_id);
+
+create index if not exists app_user_cases_status_submitted_idx
+  on public.app_user_cases (status, submitted_at desc nulls last);
+
+create index if not exists app_user_cases_guest_email_idx
+  on public.app_user_cases (guest_email);

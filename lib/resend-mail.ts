@@ -123,6 +123,90 @@ export async function sendPasswordResetEmail(
   return { ok: true };
 }
 
+export type SendCaseSubmittedEmailInput = {
+  to: string;
+  title: string;
+  caseUrl: string;
+  registerUrl: string;
+  isGuest: boolean;
+};
+
+export async function sendCaseSubmittedEmail(
+  input: SendCaseSubmittedEmailInput
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const client = getResendClient();
+  const from = getResendFromAddress();
+  if (!client || !from) {
+    return { ok: false, error: "Resend не настроен" };
+  }
+
+  const subject = "Кейс отправлен на анализ — Калькуляторы для жизни";
+  const guestExtra = input.isGuest
+    ? `<p>Чтобы удобнее отслеживать ответы, <a href="${escapeHtml(input.registerUrl)}">зарегистрируйтесь в личном кабинете</a>.</p>`
+    : "";
+  const html = `
+    <p>Здравствуйте!</p>
+    <p>Ваш кейс <strong>${escapeHtml(input.title)}</strong> отправлен на анализ. Мы ответим на этот адрес e-mail.</p>
+    <p><a href="${escapeHtml(input.caseUrl)}">Открыть кейс в приложении</a></p>
+    ${guestExtra}
+  `.trim();
+
+  const text = [
+    "Здравствуйте!",
+    "",
+    `Ваш кейс "${input.title}" отправлен на анализ. Мы ответим на этот адрес e-mail.`,
+    input.caseUrl,
+    "",
+    input.isGuest ? `Зарегистрируйтесь: ${input.registerUrl}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const { error } = await client.emails.send({ from, to: input.to, subject, html, text });
+  if (error) {
+    console.error("[resend-mail] sendCaseSubmittedEmail:", error);
+    return { ok: false, error: "Не удалось отправить письмо" };
+  }
+  return { ok: true };
+}
+
+export type SendCaseAnsweredEmailInput = {
+  to: string;
+  title: string;
+  caseUrl: string;
+};
+
+export async function sendCaseAnsweredEmail(
+  input: SendCaseAnsweredEmailInput
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const client = getResendClient();
+  const from = getResendFromAddress();
+  if (!client || !from) {
+    return { ok: false, error: "Resend не настроен" };
+  }
+
+  const subject = "Ответ по вашему кейсу — Калькуляторы для жизни";
+  const html = `
+    <p>Здравствуйте!</p>
+    <p>По вашему кейсу <strong>${escapeHtml(input.title)}</strong> готов ответ.</p>
+    <p><a href="${escapeHtml(input.caseUrl)}">Открыть ответ в приложении</a></p>
+  `.trim();
+
+  const text = [
+    "Здравствуйте!",
+    "",
+    `По вашему кейсу "${input.title}" готов ответ.`,
+    input.caseUrl,
+  ].join("\n");
+
+  const { error } = await client.emails.send({ from, to: input.to, subject, html, text });
+  if (error) {
+    console.error("[resend-mail] sendCaseAnsweredEmail:", error);
+    return { ok: false, error: "Не удалось отправить письмо" };
+  }
+  return { ok: true };
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

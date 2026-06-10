@@ -64,13 +64,17 @@ const navSections = [
   },
   {
     key: "admin",
-    links: [{ href: "/admin/settings", key: "admin_settings" as const }],
+    links: [
+      { href: "/admin/settings", key: "admin_settings" as const },
+      { href: "/admin/cases", key: "admin_cases" as const },
+    ],
   },
   {
     key: "account",
     links: [
       { href: "/account", key: "account" as const },
       { href: "/account/messages", key: "account_messages" as const },
+      { href: "/cases", key: "cases" as const },
     ],
   },
 ] as const;
@@ -194,7 +198,9 @@ export default function AppNav({
     | "deposits_special_offers"
     | "deposits_best_offers"
     | "account"
-    | "account_messages",
+    | "account_messages"
+    | "cases"
+    | "admin_cases",
     string
   > = {
     early_repay: tr(
@@ -230,8 +236,10 @@ export default function AppNav({
     api_docs: tr("Описание API", "API Overview"),
     mcp_docs: tr("MCP сервер", "MCP Server"),
     admin_settings: tr("Настройки параметров", "Parameter Settings"),
+    admin_cases: tr("Кейсы на анализ", "Cases for Review"),
     account: tr("Мой профиль", "My Profile"),
     account_messages: tr("Сообщения", "Messages"),
+    cases: tr("Кейсы", "Cases"),
   };
 
   const infoButtonLabel = tr(
@@ -320,11 +328,13 @@ export default function AppNav({
                     key !== "api_docs" &&
                     key !== "mcp_docs" &&
                     key !== "admin_settings" &&
+                    key !== "admin_cases" &&
                     key !== "key_rate" &&
                     key !== "deposits_special_offers" &&
                     key !== "deposits_best_offers" &&
                     key !== "account" &&
-                    key !== "account_messages";
+                    key !== "account_messages" &&
+                    key !== "cases";
                   return (
                     <div
                       key={href}
