@@ -450,13 +450,57 @@ export default function CasesPanel({
 
             <div>
               <label className="mb-1 block text-xs font-medium text-[var(--foreground)]">
-                Описание кейса
+                Описание финансовой ситуации для анализа
               </label>
+              {canEdit ? (
+                <div className="mb-3 space-y-3 text-xs leading-relaxed text-[var(--muted)]">
+                  <p>
+                    От того, насколько полным будет описание, зависит качество и скорость решения
+                    задачи аналитиком, а также сумма, которую мы сможем помочь сэкономить.
+                  </p>
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3">
+                    <p className="font-medium text-[var(--foreground)]">
+                      Ключевые моменты, которые стоит описать:
+                    </p>
+                    <ol className="mt-2 list-decimal space-y-2 pl-4">
+                      <li>
+                        <span className="font-medium text-[var(--foreground)]">Цель.</span> Именно
+                        для достижения цели выбираются решения — уделите время и подумайте, что
+                        именно является целью вашего запроса. Для решения кейса должны быть
+                        доступны финансы, которые стоит описать ниже: только те, которые вы готовы
+                        использовать для достижения цели.
+                      </li>
+                      <li>
+                        <span className="font-medium text-[var(--foreground)]">Деньги.</span>{" "}
+                        Желательно описать суммы и ставки, под которые вложены деньги.
+                      </li>
+                      <li>
+                        <span className="font-medium text-[var(--foreground)]">
+                          Доступные финансовые активы
+                        </span>{" "}
+                        — акции, облигации.
+                      </li>
+                      <li>
+                        <span className="font-medium text-[var(--foreground)]">Недвижимость</span>{" "}
+                        в собственности или аренде.
+                      </li>
+                      <li>
+                        <span className="font-medium text-[var(--foreground)]">
+                          Кредиты и кредитные карты.
+                        </span>
+                      </li>
+                      <li>
+                        Получаете ли вы зарплату официально и платите ли 2-НДФЛ.
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+              ) : null}
               <textarea
                 value={form.body}
                 onChange={(e) => setForm((current) => ({ ...current, body: e.target.value }))}
-                className="field-input min-h-[180px] w-full resize-y"
-                placeholder="Опишите условия, цифры, вопрос и что хотите получить в ответе"
+                className="field-input min-h-[220px] w-full resize-y"
+                placeholder="Опишите цель, доступные финансы, активы, недвижимость, кредиты и другие важные детали"
                 disabled={!canEdit || pending}
                 required
               />

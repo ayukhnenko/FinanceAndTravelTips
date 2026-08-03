@@ -16,11 +16,25 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
     <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--foreground)]">Кейсы</h1>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
-            {user
-              ? "Опишите финансовую ситуацию и отправьте кейс на анализ. Ответ придёт на e-mail; после ответа можно продолжить переписку с аналитиком."
-              : "Опишите финансовую ситуацию и отправьте кейс на анализ. Без регистрации ответ придёт на e-mail; для переписки с аналитиком удобнее зарегистрироваться."}
+          <h1 className="text-2xl font-bold text-[var(--foreground)]">Посчитать как выгоднее</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--muted)]">
+            Здесь можно описать свою финансовую ситуацию и вместе с аналитиком сервиса найти
+            способы принять более выгодное решение. Зачастую в результате анализа удаётся
+            оптимизировать финансы и сэкономить значительные суммы.
+            {user ? (
+              <>
+                <br />
+                <br />
+                Ответ придёт на e-mail; после ответа можно продолжить переписку с аналитиком.
+              </>
+            ) : (
+              <>
+                <br />
+                <br />
+                Без регистрации ответ придёт на e-mail; для переписки с аналитиком удобнее
+                зарегистрироваться.
+              </>
+            )}
           </p>
         </div>
         <Link href="/" className="btn-primary px-3 py-2">

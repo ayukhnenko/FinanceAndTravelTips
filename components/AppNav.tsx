@@ -21,6 +21,14 @@ const TOOLTIP_SHOW_DELAY_MS = 200;
 
 const navSections = [
   {
+    key: "account",
+    links: [
+      { href: "/account", key: "account" as const },
+      { href: "/account/messages", key: "account_messages" as const },
+      { href: "/cases", key: "cases" as const },
+    ],
+  },
+  {
     key: "credits",
     links: [
       { href: "/", key: "early_repay" as const },
@@ -67,14 +75,6 @@ const navSections = [
     links: [
       { href: "/admin/settings", key: "admin_settings" as const },
       { href: "/admin/cases", key: "admin_cases" as const },
-    ],
-  },
-  {
-    key: "account",
-    links: [
-      { href: "/account", key: "account" as const },
-      { href: "/account/messages", key: "account_messages" as const },
-      { href: "/cases", key: "cases" as const },
     ],
   },
 ] as const;
@@ -239,7 +239,7 @@ export default function AppNav({
     admin_cases: tr("Кейсы на анализ", "Cases for Review"),
     account: tr("Мой профиль", "My Profile"),
     account_messages: tr("Сообщения", "Messages"),
-    cases: tr("Кейсы", "Cases"),
+    cases: tr("Посчитать как выгоднее", "Calculate What's Best"),
   };
 
   const infoButtonLabel = tr(
