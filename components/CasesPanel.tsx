@@ -281,7 +281,7 @@ export default function CasesPanel({
       setInfo(
         isLoggedIn
           ? "Кейс отправлен на анализ. Ответ придёт на e-mail."
-          : "Кейс отправлен на анализ. Ответ придёт на e-mail. Рекомендуем зарегистрироваться, чтобы удобнее отслеживать ответы."
+          : "Кейс отправлен на анализ. Ответ придёт на e-mail; для переписки с аналитиком зарегистрируйтесь в приложении."
       );
     } catch {
       setError("Не удалось отправить кейс");
@@ -323,7 +323,7 @@ export default function CasesPanel({
   }
 
   const canEdit = creating || selectedCase?.status === "draft";
-  const canFollowUp = selectedCase?.status === "answered";
+  const canFollowUp = selectedCase?.status === "answered" && isLoggedIn;
   const showForm = creating || selectedCase !== null;
   const showThread = selectedCase && selectedCase.status !== "draft";
 
@@ -338,12 +338,20 @@ export default function CasesPanel({
         </div>
 
         {!isLoggedIn ? (
-          <p className="mt-2 text-xs leading-snug text-[var(--muted)]">
-            Без регистрации оставьте e-mail — ответ придёт на почту.{" "}
-            <Link href="/account/register?from=/cases" className="text-[var(--link)] underline">
-              Зарегистрироваться
-            </Link>
-          </p>
+          <div className="mt-2 space-y-2 text-xs leading-snug text-[var(--muted)]">
+            <p>
+              Без регистрации оставьте e-mail — ответ аналитика придёт на почту, но продолжить
+              переписку в приложении не получится.
+            </p>
+            <p>
+              Удобнее{" "}
+              <Link href="/account/register?from=/cases" className="text-[var(--link)] underline">
+                зарегистрироваться
+              </Link>
+              : тогда ответ и дальнейший диалог будут доступны здесь. При регистрации телефон
+              и другие личные данные указывать не обязательно.
+            </p>
+          </div>
         ) : null}
 
         <div className="mt-3 space-y-1">
@@ -494,7 +502,19 @@ export default function CasesPanel({
 
             {selectedCase?.status === "submitted" ? (
               <p className="text-xs text-[var(--muted)]">
-                Кейс на анализе. Когда аналитик ответит, вы сможете продолжить переписку.
+                {isLoggedIn
+                  ? "Кейс на анализе. Когда аналитик ответит, вы сможете продолжить переписку."
+                  : "Кейс на анализе. Ответ придёт на e-mail; для переписки с аналитиком зарегистрируйтесь в приложении."}
+              </p>
+            ) : null}
+
+            {!isLoggedIn && selectedCase?.status === "answered" ? (
+              <p className="text-xs text-[var(--muted)]">
+                Ответ также отправлен на e-mail. Чтобы продолжить переписку,{" "}
+                <Link href="/account/register?from=/cases" className="text-[var(--link)] underline">
+                  зарегистрируйтесь
+                </Link>
+                .
               </p>
             ) : null}
 

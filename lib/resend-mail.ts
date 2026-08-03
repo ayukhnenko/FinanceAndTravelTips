@@ -174,6 +174,8 @@ export type SendCaseAnsweredEmailInput = {
   to: string;
   title: string;
   caseUrl: string;
+  questionBody?: string;
+  answerBody?: string;
 };
 
 export async function sendCaseAnsweredEmail(
@@ -186,9 +188,34 @@ export async function sendCaseAnsweredEmail(
   }
 
   const subject = "Ответ по вашему кейсу — Калькуляторы для жизни";
+  const includeThread = Boolean(input.questionBody?.trim() && input.answerBody?.trim());
+
+  const threadHtml = includeThread
+    ? `
+    <p><strong>Ваш вопрос:</strong></p>
+    <p style="white-space:pre-wrap;">${escapeHtml(input.questionBody!.trim())}</p>
+    <p><strong>Ответ аналитика:</strong></p>
+    <p style="white-space:pre-wrap;">${escapeHtml(input.answerBody!.trim())}</p>
+  `.trim()
+    : "";
+
+  const threadText = includeThread
+    ? [
+        "",
+        "Ваш вопрос:",
+        "",
+        input.questionBody!.trim(),
+        "",
+        "Ответ аналитика:",
+        "",
+        input.answerBody!.trim(),
+      ].join("\n")
+    : "";
+
   const html = `
     <p>Здравствуйте!</p>
     <p>По вашему кейсу <strong>${escapeHtml(input.title)}</strong> готов ответ.</p>
+    ${threadHtml}
     <p><a href="${escapeHtml(input.caseUrl)}">Открыть ответ в приложении</a></p>
   `.trim();
 
@@ -196,8 +223,12 @@ export async function sendCaseAnsweredEmail(
     "Здравствуйте!",
     "",
     `По вашему кейсу "${input.title}" готов ответ.`,
+    threadText,
+    "",
     input.caseUrl,
-  ].join("\n");
+  ]
+    .filter((line, index, arr) => !(line === "" && arr[index - 1] === ""))
+    .join("\n");
 
   const { error } = await client.emails.send({ from, to: input.to, subject, html, text });
   if (error) {

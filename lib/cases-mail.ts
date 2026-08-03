@@ -7,7 +7,7 @@ import {
 } from "@/lib/resend-mail";
 import { resolveSiteUrl } from "@/lib/site-url";
 import type { UserCase } from "@/lib/cases-store";
-import { resolveCaseRecipientEmail } from "@/lib/cases-store";
+import { listCaseMessages, resolveCaseRecipientEmail } from "@/lib/cases-store";
 import { findUserById, listAdminEmails } from "@/lib/users-store";
 
 function buildCaseUrl(caseId: string, guestToken?: string | null): string {
@@ -86,14 +86,30 @@ export async function notifyAdminsCaseSubmitted(input: { item: UserCase }): Prom
 export async function notifyCaseAnswered(input: {
   item: UserCase;
   guestToken?: string | null;
+  answerBody?: string;
 }): Promise<void> {
   const email = resolveCaseRecipientEmail(input.item);
   if (!email || !isResendConfigured()) return;
+
+  const answerBody = (input.answerBody ?? input.item.adminResponse ?? "").trim();
+  const isGuest = !input.item.userId;
+
+  let questionBody: string | undefined;
+  if (isGuest && answerBody) {
+    const messages = await listCaseMessages(input.item);
+    const userMessages = messages.filter((message) => message.senderKind === "user");
+    questionBody =
+      userMessages.length > 0
+        ? userMessages[userMessages.length - 1]!.body
+        : input.item.body;
+  }
 
   const result = await sendCaseAnsweredEmail({
     to: email,
     title: input.item.title,
     caseUrl: buildCaseUrl(input.item.id, input.guestToken),
+    questionBody: isGuest ? questionBody : undefined,
+    answerBody: isGuest ? answerBody : undefined,
   });
 
   if (!result.ok) {

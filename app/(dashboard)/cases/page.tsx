@@ -18,8 +18,9 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
         <div>
           <h1 className="text-2xl font-bold text-[var(--foreground)]">Кейсы</h1>
           <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
-            Опишите финансовую ситуацию и отправьте кейс на анализ. Ответ придёт на e-mail;
-            после ответа можно продолжить переписку с аналитиком.
+            {user
+              ? "Опишите финансовую ситуацию и отправьте кейс на анализ. Ответ придёт на e-mail; после ответа можно продолжить переписку с аналитиком."
+              : "Опишите финансовую ситуацию и отправьте кейс на анализ. Без регистрации ответ придёт на e-mail; для переписки с аналитиком удобнее зарегистрироваться."}
           </p>
         </div>
         <Link href="/" className="btn-primary px-3 py-2">

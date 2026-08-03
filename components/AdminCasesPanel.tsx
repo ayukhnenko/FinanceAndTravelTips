@@ -166,9 +166,14 @@ export default function AdminCasesPanel({ initialCaseId }: AdminCasesPanelProps)
             Просматривайте отправленные кейсы и ведите переписку с пользователями.
           </p>
         </div>
-        <Link href="/admin/settings" className="btn-primary px-3 py-2">
-          Настройки
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/" className="btn-primary px-3 py-2">
+            На главную
+          </Link>
+          <Link href="/admin/settings" className="btn-primary px-3 py-2">
+            Настройки
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

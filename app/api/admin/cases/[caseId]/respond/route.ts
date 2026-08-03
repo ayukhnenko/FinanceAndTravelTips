@@ -33,7 +33,10 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
 
-  await notifyCaseAnswered({ item: result.case });
+  await notifyCaseAnswered({
+    item: result.case,
+    answerBody: String(body.response ?? "").trim(),
+  });
 
   return NextResponse.json({ ok: true, case: result.case });
 }
