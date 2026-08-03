@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readGuestCaseToken, getOptionalCurrentUser } from "@/lib/cases-api";
 import {
   getCaseById,
+  listCaseMessages,
   updateCaseDraft,
   verifyGuestCaseAccess,
 } from "@/lib/cases-store";
@@ -21,7 +22,8 @@ export async function GET(request: Request, context: RouteContext) {
     if (!item || item.userId !== user.id) {
       return NextResponse.json({ ok: false, error: "Кейс не найден" }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, case: item });
+    const messages = item.status === "draft" ? [] : await listCaseMessages(item);
+    return NextResponse.json({ ok: true, case: item, messages });
   }
 
   const guestToken = readGuestCaseToken(request);
@@ -34,7 +36,8 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: "Кейс не найден" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, case: item });
+  const messages = item.status === "draft" ? [] : await listCaseMessages(item);
+  return NextResponse.json({ ok: true, case: item, messages });
 }
 
 export async function PUT(request: Request, context: RouteContext) {

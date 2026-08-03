@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import CaseThread from "@/components/CaseThread";
 import {
   caseStatusLabel,
   getGuestCaseToken,
   readGuestCaseAccessList,
   rememberGuestCaseAccess,
+  type CaseMessageView,
 } from "@/lib/cases-client";
 
 type UserCase = {
@@ -49,6 +51,9 @@ export default function CasesPanel({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
+  const [messages, setMessages] = useState<CaseMessageView[]>([]);
+  const [followUp, setFollowUp] = useState("");
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const selectedCase = useMemo(
     () => cases.find((item) => item.id === selectedId) ?? null,
@@ -131,7 +136,47 @@ export default function CasesPanel({
       email: selectedCase.guestEmail ?? userEmail ?? "",
     });
     setCreating(false);
+    setFollowUp("");
   }, [selectedCase, userEmail]);
+
+  const loadCaseDetail = useCallback(
+    async (caseId: string) => {
+      setDetailLoading(true);
+      try {
+        const resp = await fetch(`/api/cases/${encodeURIComponent(caseId)}`, {
+          headers: guestHeaders(caseId),
+        });
+        const data = (await resp.json().catch(() => ({}))) as {
+          case?: UserCase;
+          messages?: CaseMessageView[];
+          error?: string;
+        };
+        if (!resp.ok) {
+          setError(data.error ?? "Не удалось загрузить кейс");
+          return;
+        }
+        if (data.case) {
+          setCases((current) =>
+            current.map((item) => (item.id === data.case!.id ? data.case! : item))
+          );
+        }
+        setMessages(data.messages ?? []);
+      } catch {
+        setError("Не удалось загрузить кейс");
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [guestHeaders]
+  );
+
+  useEffect(() => {
+    if (!selectedId || creating) {
+      setMessages([]);
+      return;
+    }
+    void loadCaseDetail(selectedId);
+  }, [selectedId, creating, loadCaseDetail]);
 
   function openCreate() {
     setSelectedId(null);
@@ -245,8 +290,42 @@ export default function CasesPanel({
     }
   }
 
+  async function handleSendFollowUp(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    setPending(true);
+    setError(null);
+    setInfo(null);
+
+    try {
+      const resp = await fetch(`/api/cases/${encodeURIComponent(selectedId)}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...guestHeaders(selectedId),
+        },
+        body: JSON.stringify({ message: followUp }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { error?: string };
+      if (!resp.ok) {
+        setError(data.error ?? "Не удалось отправить сообщение");
+        return;
+      }
+      setFollowUp("");
+      await loadCases();
+      await loadCaseDetail(selectedId);
+      setInfo("Сообщение отправлено аналитику");
+    } catch {
+      setError("Не удалось отправить сообщение");
+    } finally {
+      setPending(false);
+    }
+  }
+
   const canEdit = creating || selectedCase?.status === "draft";
+  const canFollowUp = selectedCase?.status === "answered";
   const showForm = creating || selectedCase !== null;
+  const showThread = selectedCase && selectedCase.status !== "draft";
 
   return (
     <div className="mt-6 flex flex-col gap-4 md:flex-row">
@@ -375,13 +454,48 @@ export default function CasesPanel({
               />
             </div>
 
-            {selectedCase?.status === "answered" && selectedCase.adminResponse ? (
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3">
-                <h3 className="text-sm font-semibold text-[var(--foreground)]">Ответ аналитика</h3>
-                <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--foreground)]">
-                  {selectedCase.adminResponse}
-                </p>
+            {showThread ? (
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--foreground)]">Переписка</h3>
+                {detailLoading ? (
+                  <p className="mt-2 text-xs text-[var(--muted)]">Загрузка переписки...</p>
+                ) : (
+                  <div className="mt-2">
+                    <CaseThread
+                      initialBody={selectedCase!.body}
+                      initialAt={selectedCase!.submittedAt ?? selectedCase!.createdAt}
+                      messages={messages}
+                    />
+                  </div>
+                )}
               </div>
+            ) : null}
+
+            {canFollowUp ? (
+              <form onSubmit={handleSendFollowUp} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-[var(--foreground)]">
+                    Ваше сообщение аналитику
+                  </label>
+                  <textarea
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                    className="field-input min-h-[120px] w-full resize-y"
+                    placeholder="Уточните детали или задайте дополнительный вопрос"
+                    disabled={pending}
+                    required
+                  />
+                </div>
+                <button type="submit" disabled={pending} className="btn-primary disabled:opacity-60">
+                  {pending ? "Отправка..." : "Отправить сообщение"}
+                </button>
+              </form>
+            ) : null}
+
+            {selectedCase?.status === "submitted" ? (
+              <p className="text-xs text-[var(--muted)]">
+                Кейс на анализе. Когда аналитик ответит, вы сможете продолжить переписку.
+              </p>
             ) : null}
 
             {error ? <p className="text-sm text-rose-700">{error}</p> : null}

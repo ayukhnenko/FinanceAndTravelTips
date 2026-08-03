@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { caseStatusLabel } from "@/lib/cases-client";
+import CaseThread from "@/components/CaseThread";
+import { caseStatusLabel, type CaseMessageView } from "@/lib/cases-client";
 import { formatTimeMoscow } from "@/lib/date-utils";
 
 type UserCase = {
@@ -14,6 +15,7 @@ type UserCase = {
   status: "draft" | "submitted" | "answered";
   adminResponse: string | null;
   adminRespondedAt: string | null;
+  adminRespondedBy: string | null;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -23,12 +25,26 @@ type UserCase = {
 
 type FilterStatus = "all" | "submitted" | "answered";
 
-export default function AdminCasesPanel() {
+type AdminCasesPanelProps = {
+  initialCaseId?: string | null;
+};
+
+function authorLabel(item: UserCase): string {
+  if (item.authorName?.trim()) return item.authorName.trim();
+  if (item.authorLogin) return `@${item.authorLogin}`;
+  if (item.guestEmail) return item.guestEmail;
+  return "Пользователь";
+}
+
+export default function AdminCasesPanel({ initialCaseId }: AdminCasesPanelProps) {
   const [cases, setCases] = useState<UserCase[]>([]);
   const [filter, setFilter] = useState<FilterStatus>("submitted");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialCaseId ?? null);
   const [response, setResponse] = useState("");
+  const [messages, setMessages] = useState<CaseMessageView[]>([]);
+  const [canRespond, setCanRespond] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -63,13 +79,54 @@ export default function AdminCasesPanel() {
     }
   }, [filter]);
 
+  const loadCaseDetail = useCallback(async (caseId: string) => {
+    setDetailLoading(true);
+    try {
+      const resp = await fetch(`/api/admin/cases/${encodeURIComponent(caseId)}`);
+      const data = (await resp.json().catch(() => ({}))) as {
+        case?: UserCase;
+        messages?: CaseMessageView[];
+        canRespond?: boolean;
+        error?: string;
+      };
+      if (!resp.ok) {
+        setError(data.error ?? "Не удалось загрузить кейс");
+        return;
+      }
+      if (data.case) {
+        setCases((current) =>
+          current.map((item) => (item.id === data.case!.id ? data.case! : item))
+        );
+      }
+      setMessages(data.messages ?? []);
+      setCanRespond(Boolean(data.canRespond));
+    } catch {
+      setError("Не удалось загрузить кейс");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadCases();
   }, [loadCases]);
 
   useEffect(() => {
-    setResponse(selectedCase?.adminResponse ?? "");
-  }, [selectedCase]);
+    if (!initialCaseId || cases.length === 0) return;
+    if (cases.some((item) => item.id === initialCaseId)) {
+      setSelectedId(initialCaseId);
+    }
+  }, [initialCaseId, cases]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setMessages([]);
+      setCanRespond(false);
+      return;
+    }
+    setResponse("");
+    void loadCaseDetail(selectedId);
+  }, [selectedId, loadCaseDetail]);
 
   async function handleRespond(event: FormEvent) {
     event.preventDefault();
@@ -89,8 +146,10 @@ export default function AdminCasesPanel() {
         setError(data.error ?? "Не удалось отправить ответ");
         return;
       }
+      setResponse("");
       setInfo("Ответ отправлен пользователю на e-mail");
       await loadCases();
+      await loadCaseDetail(selectedId);
     } catch {
       setError("Не удалось отправить ответ");
     } finally {
@@ -104,7 +163,7 @@ export default function AdminCasesPanel() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--foreground)]">Кейсы на анализ</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Просматривайте отправленные кейсы и отвечайте пользователям.
+            Просматривайте отправленные кейсы и ведите переписку с пользователями.
           </p>
         </div>
         <Link href="/admin/settings" className="btn-primary px-3 py-2">
@@ -180,44 +239,61 @@ export default function AdminCasesPanel() {
               <div>
                 <h2 className="text-lg font-semibold text-[var(--foreground)]">{selectedCase.title}</h2>
                 <p className="mt-1 text-xs text-[var(--muted)]">
-                  {selectedCase.authorName || selectedCase.authorLogin
-                    ? `Автор: ${selectedCase.authorName ?? ""} ${selectedCase.authorLogin ? `(@${selectedCase.authorLogin})` : ""}`
-                    : "Гость"}
+                  {authorLabel(selectedCase)}
                   {selectedCase.guestEmail ? ` · ${selectedCase.guestEmail}` : ""}
                   {selectedCase.submittedAt
                     ? ` · отправлен ${formatTimeMoscow(selectedCase.submittedAt)}`
                     : ""}
+                  {` · ${caseStatusLabel(selectedCase.status)}`}
                 </p>
               </div>
 
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3">
-                <h3 className="text-sm font-semibold text-[var(--foreground)]">Описание</h3>
-                <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--foreground)]">
-                  {selectedCase.body}
-                </p>
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--foreground)]">Переписка</h3>
+                {detailLoading ? (
+                  <p className="mt-2 text-xs text-[var(--muted)]">Загрузка переписки...</p>
+                ) : (
+                  <div className="mt-2">
+                    <CaseThread
+                      initialBody={selectedCase.body}
+                      initialAt={selectedCase.submittedAt ?? selectedCase.createdAt}
+                      authorLabel={authorLabel(selectedCase)}
+                      userLabel={authorLabel(selectedCase)}
+                      messages={messages}
+                    />
+                  </div>
+                )}
               </div>
 
-              <form onSubmit={handleRespond} className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-[var(--foreground)]">
-                    Ответ пользователю
-                  </label>
-                  <textarea
-                    value={response}
-                    onChange={(e) => setResponse(e.target.value)}
-                    className="field-input min-h-[180px] w-full resize-y"
-                    placeholder="Подготовьте разбор кейса"
-                    required
-                  />
-                </div>
+              {canRespond ? (
+                <form onSubmit={handleRespond} className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-[var(--foreground)]">
+                      Ответ пользователю
+                    </label>
+                    <textarea
+                      value={response}
+                      onChange={(e) => setResponse(e.target.value)}
+                      className="field-input min-h-[180px] w-full resize-y"
+                      placeholder="Подготовьте разбор кейса или ответ на уточнение"
+                      required
+                    />
+                  </div>
 
-                {error ? <p className="text-sm text-rose-700">{error}</p> : null}
-                {info ? <p className="text-sm text-[var(--accent)]">{info}</p> : null}
+                  {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+                  {info ? <p className="text-sm text-[var(--accent)]">{info}</p> : null}
 
-                <button type="submit" disabled={pending} className="btn-primary disabled:opacity-60">
-                  {pending ? "Отправка..." : "Отправить ответ"}
-                </button>
-              </form>
+                  <button type="submit" disabled={pending} className="btn-primary disabled:opacity-60">
+                    {pending ? "Отправка..." : "Отправить ответ"}
+                  </button>
+                </form>
+              ) : (
+                <p className="text-xs text-[var(--muted)]">
+                  {selectedCase.status === "answered"
+                    ? "Ожидаем ответ пользователя."
+                    : "Этот кейс ведёт другой аналитик."}
+                </p>
+              )}
             </div>
           )}
         </section>

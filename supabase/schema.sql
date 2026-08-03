@@ -249,3 +249,16 @@ create index if not exists app_user_cases_status_submitted_idx
 
 create index if not exists app_user_cases_guest_email_idx
   on public.app_user_cases (guest_email);
+
+create table if not exists public.app_user_case_messages (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.app_user_cases(id) on delete cascade,
+  sender_kind text not null check (sender_kind in ('user', 'admin')),
+  sender_user_id uuid references public.app_users(id) on delete set null,
+  body text not null,
+  created_at timestamptz not null default now(),
+  constraint app_user_case_messages_body_length check (char_length(body) >= 1 and char_length(body) <= 10000)
+);
+
+create index if not exists app_user_case_messages_case_created_idx
+  on public.app_user_case_messages (case_id, created_at asc);

@@ -12,6 +12,17 @@ const MIN_BODY_LENGTH = 10;
 
 export type CaseStatus = "draft" | "submitted" | "answered";
 
+export type CaseMessage = {
+  id: string;
+  caseId: string;
+  senderKind: "user" | "admin";
+  senderUserId: string | null;
+  senderLogin: string | null;
+  senderName: string | null;
+  body: string;
+  createdAt: string;
+};
+
 export type UserCase = {
   id: string;
   userId: string | null;
@@ -538,11 +549,17 @@ export async function listCasesForAdmin(status?: CaseStatus | "all"): Promise<Us
   }
 }
 
-export function validateAdminResponse(response: string): string | null {
-  const trimmed = response.trim();
-  if (trimmed.length < 10) return "Ответ должен быть не короче 10 символов";
-  if (trimmed.length > 10000) return "Ответ не должен быть длиннее 10000 символов";
+export function validateCaseMessage(body: string): string | null {
+  const trimmed = body.trim();
+  if (trimmed.length < 10) return "Сообщение должно быть не короче 10 символов";
+  if (trimmed.length > MAX_BODY_LENGTH) {
+    return `Сообщение не должно быть длиннее ${MAX_BODY_LENGTH} символов`;
+  }
   return null;
+}
+
+export function validateAdminResponse(response: string): string | null {
+  return validateCaseMessage(response);
 }
 
 export async function respondToCase(input: {
@@ -550,25 +567,60 @@ export async function respondToCase(input: {
   adminUserId: string;
   response: string;
 }): Promise<{ ok: true; case: UserCase } | { ok: false; error: string }> {
-  const responseError = validateAdminResponse(input.response);
+  const responseError = validateCaseMessage(input.response);
   if (responseError) return { ok: false, error: responseError };
 
   const item = await getCaseById(input.caseId);
   if (!item || item.status === "draft") {
     return { ok: false, error: "Кейс не найден или ещё не отправлен" };
   }
+  if (item.status !== "submitted") {
+    return { ok: false, error: "Сейчас ждём сообщение от пользователя" };
+  }
+  if (item.adminRespondedBy && item.adminRespondedBy !== input.adminUserId) {
+    return { ok: false, error: "Этот кейс ведёт другой аналитик" };
+  }
 
   const supabase = getSupabaseAdminClient();
   if (!supabase) return { ok: false, error: "База данных не настроена" };
 
   const now = new Date().toISOString();
+  const trimmed = input.response.trim();
   try {
+    const messageResponse = await withTimeout(
+      supabase
+        .from("app_user_case_messages")
+        .insert({
+          case_id: input.caseId,
+          sender_kind: "admin",
+          sender_user_id: input.adminUserId,
+          body: trimmed,
+          created_at: now,
+        })
+        .select("id")
+        .single()
+        .then((r) => r),
+      CASES_TIMEOUT_MS
+    );
+
+    if (messageResponse.error) {
+      if (isMissingColumnError(messageResponse.error)) {
+        return {
+          ok: false,
+          error:
+            "В базе нет таблицы app_user_case_messages — выполните SQL-миграцию в Supabase",
+        };
+      }
+      console.error("[cases-store] respondToCase insert message:", messageResponse.error);
+      return { ok: false, error: "Не удалось сохранить ответ" };
+    }
+
     const dbResponse = await withTimeout(
       supabase
         .from("app_user_cases")
         .update({
           status: "answered",
-          admin_response: input.response.trim(),
+          admin_response: trimmed,
           admin_responded_at: now,
           admin_responded_by: input.adminUserId,
           updated_at: now,
@@ -595,6 +647,212 @@ export async function respondToCase(input: {
   }
 }
 
+function mapCaseMessageRow(row: Record<string, unknown>): CaseMessage {
+  return {
+    id: String(row.id),
+    caseId: String(row.case_id),
+    senderKind: String(row.sender_kind) as "user" | "admin",
+    senderUserId: row.sender_user_id == null ? null : String(row.sender_user_id),
+    senderLogin: null,
+    senderName: null,
+    body: String(row.body ?? ""),
+    createdAt: String(row.created_at ?? ""),
+  };
+}
+
+async function attachMessageSenderMeta(messages: CaseMessage[]): Promise<CaseMessage[]> {
+  const userIds = Array.from(
+    new Set(messages.map((item) => item.senderUserId).filter((id): id is string => Boolean(id)))
+  );
+  const users = await Promise.all(userIds.map((id) => findUserById(id)));
+  const byId = new Map(users.filter(Boolean).map((user) => [user!.id, user!]));
+
+  return messages.map((message) => {
+    if (!message.senderUserId) return message;
+    const user = byId.get(message.senderUserId);
+    if (!user) return message;
+    return {
+      ...message,
+      senderLogin: user.login,
+      senderName: user.name,
+    };
+  });
+}
+
+export async function listCaseMessages(item: UserCase): Promise<CaseMessage[]> {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return [];
+
+  try {
+    const response = await withTimeout(
+      supabase
+        .from("app_user_case_messages")
+        .select("id,case_id,sender_kind,sender_user_id,body,created_at")
+        .eq("case_id", item.id)
+        .order("created_at", { ascending: true })
+        .then((r) => r),
+      CASES_TIMEOUT_MS
+    );
+
+    if (response.error) {
+      if (isMissingColumnError(response.error)) {
+        if (item.adminResponse && item.adminRespondedAt) {
+          return attachMessageSenderMeta([
+            {
+              id: "legacy-admin-response",
+              caseId: item.id,
+              senderKind: "admin",
+              senderUserId: item.adminRespondedBy,
+              senderLogin: null,
+              senderName: null,
+              body: item.adminResponse,
+              createdAt: item.adminRespondedAt,
+            },
+          ]);
+        }
+        return [];
+      }
+      console.error("[cases-store] listCaseMessages:", response.error);
+      return [];
+    }
+
+    let messages = (response.data ?? []).map((row) =>
+      mapCaseMessageRow(row as Record<string, unknown>)
+    );
+
+    if (
+      messages.length === 0 &&
+      item.adminResponse &&
+      item.adminRespondedAt &&
+      item.status !== "draft"
+    ) {
+      messages = [
+        {
+          id: "legacy-admin-response",
+          caseId: item.id,
+          senderKind: "admin",
+          senderUserId: item.adminRespondedBy,
+          senderLogin: null,
+          senderName: null,
+          body: item.adminResponse,
+          createdAt: item.adminRespondedAt,
+        },
+      ];
+    }
+
+    return attachMessageSenderMeta(messages);
+  } catch (err) {
+    console.error("[cases-store] listCaseMessages:", err);
+    return [];
+  }
+}
+
+export async function addUserCaseFollowUp(input: {
+  caseId: string;
+  userId?: string | null;
+  guestToken?: string | null;
+  body: string;
+}): Promise<
+  | { ok: true; case: UserCase; message: CaseMessage }
+  | { ok: false; error: string }
+> {
+  const bodyError = validateCaseMessage(input.body);
+  if (bodyError) return { ok: false, error: bodyError };
+
+  let item: UserCase | null = null;
+  if (input.userId) {
+    item = await getCaseById(input.caseId);
+    if (!item || item.userId !== input.userId) {
+      return { ok: false, error: "Кейс не найден" };
+    }
+  } else if (input.guestToken) {
+    item = await verifyGuestCaseAccess(input.caseId, input.guestToken);
+    if (!item) return { ok: false, error: "Кейс не найден" };
+  } else {
+    return { ok: false, error: "Кейс не найден" };
+  }
+
+  if (item.status !== "answered") {
+    return { ok: false, error: "Можно ответить только после ответа аналитика" };
+  }
+  if (!item.adminRespondedBy) {
+    return { ok: false, error: "Кейс ещё не обработан аналитиком" };
+  }
+
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return { ok: false, error: "База данных не настроена" };
+
+  const now = new Date().toISOString();
+  const trimmed = input.body.trim();
+
+  try {
+    const messageResponse = await withTimeout(
+      supabase
+        .from("app_user_case_messages")
+        .insert({
+          case_id: input.caseId,
+          sender_kind: "user",
+          sender_user_id: input.userId ?? null,
+          body: trimmed,
+          created_at: now,
+        })
+        .select("id,case_id,sender_kind,sender_user_id,body,created_at")
+        .single()
+        .then((r) => r),
+      CASES_TIMEOUT_MS
+    );
+
+    if (messageResponse.error || !messageResponse.data) {
+      if (isMissingColumnError(messageResponse.error)) {
+        return {
+          ok: false,
+          error:
+            "В базе нет таблицы app_user_case_messages — выполните SQL-миграцию в Supabase",
+        };
+      }
+      console.error("[cases-store] addUserCaseFollowUp:", messageResponse.error);
+      return { ok: false, error: "Не удалось отправить сообщение" };
+    }
+
+    const caseResponse = await withTimeout(
+      supabase
+        .from("app_user_cases")
+        .update({
+          status: "submitted",
+          updated_at: now,
+        })
+        .eq("id", input.caseId)
+        .select(CASE_SELECT)
+        .single()
+        .then((r) => r),
+      CASES_TIMEOUT_MS
+    );
+
+    if (caseResponse.error || !caseResponse.data) {
+      console.error("[cases-store] addUserCaseFollowUp update case:", caseResponse.error);
+      return { ok: false, error: "Не удалось отправить сообщение" };
+    }
+
+    const [message] = await attachMessageSenderMeta([
+      mapCaseMessageRow(messageResponse.data as Record<string, unknown>),
+    ]);
+    const [withAuthor] = await attachAuthorMeta([
+      mapCaseRow(caseResponse.data as Record<string, unknown>),
+    ]);
+
+    return { ok: true, case: withAuthor, message };
+  } catch (err) {
+    console.error("[cases-store] addUserCaseFollowUp:", err);
+    return { ok: false, error: "Не удалось отправить сообщение" };
+  }
+}
+
 export function resolveCaseRecipientEmail(item: UserCase): string | null {
   return item.guestEmail;
+}
+
+export function canAdminRespondToCase(item: UserCase, adminUserId: string): boolean {
+  if (item.status !== "submitted") return false;
+  if (!item.adminRespondedBy) return true;
+  return item.adminRespondedBy === adminUserId;
 }

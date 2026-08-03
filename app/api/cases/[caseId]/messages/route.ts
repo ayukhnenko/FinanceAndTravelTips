@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readGuestCaseToken, getOptionalCurrentUser } from "@/lib/cases-api";
-import { notifyAdminsCaseSubmitted, notifyCaseSubmitted } from "@/lib/cases-mail";
-import { submitCaseForAnalysis } from "@/lib/cases-store";
+import { notifyAssignedAdminCaseFollowUp } from "@/lib/cases-mail";
+import { addUserCaseFollowUp } from "@/lib/cases-store";
 
 export const dynamic = "force-dynamic";
 
@@ -14,18 +14,18 @@ export async function POST(request: Request, context: RouteContext) {
   const guestToken = readGuestCaseToken(request);
   const caseId = context.params.caseId;
 
-  let body: { email?: string } = {};
+  let body: { message?: string };
   try {
-    body = await request.json().catch(() => ({}));
+    body = await request.json();
   } catch {
-    body = {};
+    return NextResponse.json({ ok: false, error: "Некорректный запрос" }, { status: 400 });
   }
 
-  const result = await submitCaseForAnalysis({
+  const result = await addUserCaseFollowUp({
     caseId,
     userId: user?.id ?? null,
     guestToken,
-    email: body.email == null ? null : String(body.email),
+    body: String(body.message ?? ""),
   });
 
   if (!result.ok) {
@@ -33,14 +33,10 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
 
-  await Promise.all([
-    notifyCaseSubmitted({
-      item: result.case,
-      isGuest: !user,
-      guestToken,
-    }),
-    notifyAdminsCaseSubmitted({ item: result.case }),
-  ]);
+  await notifyAssignedAdminCaseFollowUp({
+    item: result.case,
+    messageBody: result.message.body,
+  });
 
-  return NextResponse.json({ ok: true, case: result.case });
+  return NextResponse.json({ ok: true, case: result.case, message: result.message });
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDateTimeMoscow, todayIsoDateMoscow } from "@/lib/date-utils";
 import {
@@ -490,11 +491,16 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-5 md:p-8">
-      <div className="mb-6">
-        <StandPrefixedTitle title="Администрирование настроек" />
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Параметры источников данных, ставки и загрузки вкладов
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <StandPrefixedTitle title="Администрирование настроек" />
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Параметры источников данных, ставки и загрузки вкладов
+          </p>
+        </div>
+        <Link href="/" className="btn-primary px-3 py-2">
+          На главную
+        </Link>
       </div>
 
       <div className="card-panel overflow-x-auto">

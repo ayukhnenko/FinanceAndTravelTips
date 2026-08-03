@@ -369,3 +369,36 @@ export async function updateUserPassword(
     return { ok: false, error: "Не удалось обновить пароль" };
   }
 }
+
+export async function listAdminEmails(): Promise<string[]> {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return [];
+
+  try {
+    const response = await withTimeout(
+      supabase
+        .from("app_users")
+        .select("email")
+        .eq("is_admin", true)
+        .not("email", "is", null)
+        .then((r) => r),
+      USERS_TIMEOUT_MS
+    );
+
+    if (response.error) {
+      console.error("[users-store] listAdminEmails:", response.error);
+      return [];
+    }
+
+    const emails = new Set<string>();
+    for (const row of response.data ?? []) {
+      const raw = row.email;
+      if (typeof raw !== "string" || !raw.trim()) continue;
+      emails.add(normalizeEmail(raw));
+    }
+    return Array.from(emails);
+  } catch (err) {
+    console.error("[users-store] listAdminEmails:", err);
+    return [];
+  }
+}

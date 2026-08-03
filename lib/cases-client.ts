@@ -37,3 +37,12 @@ export function caseStatusLabel(status: string): string {
   if (status === "answered") return "Ответ получен";
   return "Черновик";
 }
+
+export type CaseMessageView = {
+  id: string;
+  senderKind: "user" | "admin";
+  senderLogin: string | null;
+  senderName: string | null;
+  body: string;
+  createdAt: string;
+};
