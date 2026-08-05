@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
-import { transcribeSpeechAudio } from "@/lib/speech-transcribe";
+import {
+  getSpeechTranscribeStatus,
+  transcribeSpeechAudio,
+} from "@/lib/speech-transcribe";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const revalidate = 0;
+
+export async function GET() {
+  return NextResponse.json(getSpeechTranscribeStatus());
+}
 
 export async function POST(request: Request) {
   let formData: FormData;

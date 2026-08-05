@@ -30,10 +30,29 @@ type WhisperPayload = {
 };
 
 function readSecretEnv(name: string): string | undefined {
-  const raw = process.env[name];
+  const env = process.env;
+  const raw = env[name];
   if (raw == null) return undefined;
   const trimmed = raw.trim();
   return trimmed.length ? trimmed : undefined;
+}
+
+export function getSpeechTranscribeStatus() {
+  const groqKey = readSecretEnv("GROQ_API_KEY");
+  const openAiKey = readSecretEnv("OPENAI_API_KEY");
+  const matchingEnvKeys = Object.keys(process.env).filter((key) =>
+    /groq|openai|whisper/i.test(key)
+  );
+
+  return {
+    configured: Boolean(groqKey || openAiKey),
+    groqKeyPresent: Boolean(groqKey),
+    openAiKeyPresent: Boolean(openAiKey),
+    groqKeyLength: groqKey?.length ?? 0,
+    vercelEnv: process.env.VERCEL_ENV ?? null,
+    vercelUrl: process.env.VERCEL_URL ?? null,
+    matchingEnvKeys,
+  };
 }
 
 function resolveWhisperConfig(): WhisperConfig | null {
@@ -117,9 +136,14 @@ export async function transcribeSpeechAudio(
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
   const config = resolveWhisperConfig();
   if (!config) {
+    const status = getSpeechTranscribeStatus();
+    console.error("[speech-transcribe] missing API key:", status);
     return {
       ok: false,
-      error: "Расшифровка речи не настроена на сервере. Задайте GROQ_API_KEY.",
+      error:
+        status.matchingEnvKeys.length > 0
+          ? `Расшифровка речи не настроена: ключ не найден (env: ${status.vercelEnv ?? "unknown"}). Проверьте имя GROQ_API_KEY в Vercel.`
+          : "Расшифровка речи не настроена на сервере. Задайте GROQ_API_KEY.",
     };
   }
 
