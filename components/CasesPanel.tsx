@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import CaseThread from "@/components/CaseThread";
+import { appendTranscript } from "@/lib/speech-recognition-client";
 import {
   caseStatusLabel,
   getGuestCaseToken,
@@ -11,6 +13,9 @@ import {
   type CaseMessageView,
 } from "@/lib/cases-client";
 
+const SpeechInputButton = dynamic(() => import("@/components/SpeechInputButton"), {
+  ssr: false,
+});
 type UserCase = {
   id: string;
   userId: string | null;
@@ -129,15 +134,14 @@ export default function CasesPanel({
   }, [initialCaseId, cases]);
 
   useEffect(() => {
-    if (!selectedCase) return;
+    if (!selectedCase || creating) return;
     setForm({
       title: selectedCase.title,
       body: selectedCase.body,
       email: selectedCase.guestEmail ?? userEmail ?? "",
     });
-    setCreating(false);
     setFollowUp("");
-  }, [selectedCase, userEmail]);
+  }, [selectedCase, creating, userEmail]);
 
   const loadCaseDetail = useCallback(
     async (caseId: string) => {
@@ -193,8 +197,8 @@ export default function CasesPanel({
     setInfo(null);
   }
 
-  async function handleSaveDraft(event: FormEvent) {
-    event.preventDefault();
+  async function handleSaveDraft(event?: { preventDefault?: () => void }) {
+    event?.preventDefault?.();
     setPending(true);
     setError(null);
     setInfo(null);
@@ -290,8 +294,8 @@ export default function CasesPanel({
     }
   }
 
-  async function handleSendFollowUp(event: FormEvent) {
-    event.preventDefault();
+  async function handleSendFollowUp(event?: { preventDefault?: () => void }) {
+    event?.preventDefault?.();
     if (!selectedId) return;
     setPending(true);
     setError(null);
@@ -392,7 +396,7 @@ export default function CasesPanel({
             Выберите кейс или создайте новый
           </div>
         ) : (
-          <form onSubmit={handleSaveDraft} className="space-y-4">
+          <div className="space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-[var(--foreground)]">
                 {creating ? "Новый кейс" : selectedCase?.title}
@@ -434,9 +438,23 @@ export default function CasesPanel({
             )}
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--foreground)]">
-                Заголовок
-              </label>
+              <div className="mb-1 flex items-start justify-between gap-2">
+                <label className="min-w-0 flex-1 text-xs font-medium text-[var(--foreground)]">
+                  Заголовок
+                </label>
+                {canEdit ? (
+                  <SpeechInputButton
+                    continuous={false}
+                    disabled={pending}
+                    onTranscript={(text) =>
+                      setForm((current) => ({
+                        ...current,
+                        title: appendTranscript(current.title, text),
+                      }))
+                    }
+                  />
+                ) : null}
+              </div>
               <input
                 type="text"
                 value={form.title}
@@ -449,11 +467,28 @@ export default function CasesPanel({
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--foreground)]">
-                Описание финансовой ситуации для анализа
-              </label>
+              <div className="mb-1 flex items-start justify-between gap-2">
+                <label className="min-w-0 flex-1 text-xs font-medium text-[var(--foreground)]">
+                  Описание финансовой ситуации для анализа
+                </label>
+                {canEdit ? (
+                  <SpeechInputButton
+                    disabled={pending}
+                    onTranscript={(text) =>
+                      setForm((current) => ({
+                        ...current,
+                        body: appendTranscript(current.body, text),
+                      }))
+                    }
+                  />
+                ) : null}
+              </div>
               {canEdit ? (
                 <div className="mb-3 space-y-3 text-xs leading-relaxed text-[var(--muted)]">
+                  <p>
+                    Можно надиктовать текст кнопкой «Надиктовать» — он будет расшифрован и сохранён
+                    как обычный текст.
+                  </p>
                   <p>
                     От того, насколько полным будет описание, зависит качество и скорость решения
                     задачи аналитиком, а также сумма, которую мы сможем помочь сэкономить.
@@ -524,11 +559,19 @@ export default function CasesPanel({
             ) : null}
 
             {canFollowUp ? (
-              <form onSubmit={handleSendFollowUp} className="space-y-3">
+              <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-[var(--foreground)]">
-                    Ваше сообщение аналитику
-                  </label>
+                  <div className="mb-1 flex items-start justify-between gap-2">
+                    <label className="min-w-0 flex-1 text-xs font-medium text-[var(--foreground)]">
+                      Ваше сообщение аналитику
+                    </label>
+                    <SpeechInputButton
+                      disabled={pending}
+                      onTranscript={(text) =>
+                        setFollowUp((current) => appendTranscript(current, text))
+                      }
+                    />
+                  </div>
                   <textarea
                     value={followUp}
                     onChange={(e) => setFollowUp(e.target.value)}
@@ -538,10 +581,15 @@ export default function CasesPanel({
                     required
                   />
                 </div>
-                <button type="submit" disabled={pending} className="btn-primary disabled:opacity-60">
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => void handleSendFollowUp()}
+                  className="btn-primary disabled:opacity-60"
+                >
                   {pending ? "Отправка..." : "Отправить сообщение"}
                 </button>
-              </form>
+              </div>
             ) : null}
 
             {selectedCase?.status === "submitted" ? (
@@ -567,7 +615,12 @@ export default function CasesPanel({
 
             {canEdit ? (
               <div className="flex flex-wrap gap-2">
-                <button type="submit" disabled={pending} className="btn-primary disabled:opacity-60">
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => void handleSaveDraft()}
+                  className="btn-primary disabled:opacity-60"
+                >
                   {pending ? "Сохранение..." : "Сохранить черновик"}
                 </button>
                 {!creating && selectedId ? (
@@ -582,7 +635,7 @@ export default function CasesPanel({
                 ) : null}
               </div>
             ) : null}
-          </form>
+          </div>
         )}
       </section>
     </div>
