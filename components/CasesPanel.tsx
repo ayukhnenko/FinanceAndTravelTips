@@ -444,7 +444,6 @@ export default function CasesPanel({
                 </label>
                 {canEdit ? (
                   <SpeechInputButton
-                    continuous={false}
                     disabled={pending}
                     onTranscript={(text) =>
                       setForm((current) => ({
@@ -486,8 +485,8 @@ export default function CasesPanel({
               {canEdit ? (
                 <div className="mb-3 space-y-3 text-xs leading-relaxed text-[var(--muted)]">
                   <p>
-                    Можно надиктовать текст кнопкой «Надиктовать» — он будет расшифрован и сохранён
-                    как обычный текст.
+                    Можно надиктовать текст кнопкой «Надиктовать» — запись отправится на сервер и
+                    будет расшифрована в обычный текст.
                   </p>
                   <p>
                     От того, насколько полным будет описание, зависит качество и скорость решения
