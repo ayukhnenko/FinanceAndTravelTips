@@ -29,8 +29,15 @@ type WhisperPayload = {
   error?: { message?: string; code?: string; type?: string };
 };
 
+function readSecretEnv(name: string): string | undefined {
+  const raw = process.env[name];
+  if (raw == null) return undefined;
+  const trimmed = raw.trim();
+  return trimmed.length ? trimmed : undefined;
+}
+
 function resolveWhisperConfig(): WhisperConfig | null {
-  const groqKey = process.env.GROQ_API_KEY?.trim();
+  const groqKey = readSecretEnv("GROQ_API_KEY");
   if (groqKey) {
     return {
       provider: "groq",
@@ -41,7 +48,7 @@ function resolveWhisperConfig(): WhisperConfig | null {
     };
   }
 
-  const openAiKey = process.env.OPENAI_API_KEY?.trim();
+  const openAiKey = readSecretEnv("OPENAI_API_KEY");
   if (openAiKey) {
     return {
       provider: "openai",
