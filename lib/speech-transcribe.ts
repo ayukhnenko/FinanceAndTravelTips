@@ -3,7 +3,6 @@ import { cleanSpeechTranscript, isKnownSpeechHallucination } from "@/lib/speech-
 const GROQ_WHISPER_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 const OPENAI_WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions";
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
-const MIN_AUDIO_BYTES = 2_000;
 const WHISPER_PROMPT =
   "Диктовка описания финансового кейса пользователем. Обычная разговорная речь на русском языке.";
 
@@ -149,13 +148,6 @@ export async function transcribeSpeechAudio(
 
   if (audio.size === 0) {
     return { ok: false, error: "Запись пуста" };
-  }
-
-  if (audio.size < MIN_AUDIO_BYTES) {
-    return {
-      ok: false,
-      error: "Запись слишком короткая. Говорите 1–2 секунды и только потом останавливайте.",
-    };
   }
 
   if (audio.size > MAX_AUDIO_BYTES) {

@@ -9,7 +9,8 @@ type SpeechInputButtonProps = {
 };
 
 const MAX_RECORDING_MS = 120_000;
-const MIN_RECORDING_MS = 1_000;
+const MIN_RECORDING_MS = 800;
+const STOP_FLUSH_MS = 300;
 const RECORDING_TIMESLICE_MS = 250;
 
 function MicIcon({ className }: { className?: string }) {
@@ -173,7 +174,7 @@ export default function SpeechInputButton({
         setIsRecording(false);
 
         if (startedAt !== null && Date.now() - startedAt < MIN_RECORDING_MS) {
-          setError("Говорите чуть дольше — минимум 1 секунда, затем остановите запись.");
+          setError("Говорите чуть дольше, затем остановите запись.");
           return;
         }
 
@@ -206,24 +207,26 @@ export default function SpeechInputButton({
   }
 
   function stopRecording() {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== "recording") {
+      setIsRecording(false);
+      cleanupStream();
+      return;
+    }
+
     try {
-      if (mediaRecorderRef.current?.state === "recording") {
-        mediaRecorderRef.current.requestData();
-        window.setTimeout(() => {
-          try {
-            if (mediaRecorderRef.current?.state === "recording") {
-              mediaRecorderRef.current.stop();
-            }
-          } catch {
-            setIsRecording(false);
-            cleanupStream();
-            setError("Не удалось остановить запись.");
+      recorder.requestData();
+      window.setTimeout(() => {
+        try {
+          if (recorder.state === "recording") {
+            recorder.stop();
           }
-        }, 120);
-      } else {
-        setIsRecording(false);
-        cleanupStream();
-      }
+        } catch {
+          setIsRecording(false);
+          cleanupStream();
+          setError("Не удалось остановить запись.");
+        }
+      }, STOP_FLUSH_MS);
     } catch {
       setIsRecording(false);
       cleanupStream();
